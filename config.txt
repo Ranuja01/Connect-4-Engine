@@ -1,0 +1,4 @@
+3
+images/logo.png
+images/piece2.png
+images/piece1.png
