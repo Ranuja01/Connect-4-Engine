@@ -22,8 +22,12 @@ public class ConnectFour {
    ConnectFourGUI gui;     // the gui that provides the front end of the game
    int numMove;            // num of move that has been made in this game
    int curPlayer;          // the id number of the current player
-   int numGamesRecorded;
-   //int numLossesRecorded;
+   int numWinsRecorded;
+   int numLossesRecorded;
+   int num
+
+
+   
    int grid[][];           // represents the grid of the game board
    int score[];            // represents the scores of the players
    int gameData [][][] = new int [42][6][7];
@@ -162,35 +166,37 @@ public class ConnectFour {
       
    }
    
-   // public boolean database () {
-//    
-//       numGamesRecorded = Integer.parseInt(in.readLine());      
-//       try {
-//       
-//          
-//          BufferedReader lossesFile = new BufferedReader (new FileReader("Losses.txt")); 
-//          BufferedReader winsFile = new BufferedReader (new FileReader("Wins.txt")); 
-//          
-//           
-//             
-//          for (int i = 0; i < numMove; i++) {
-//             for (int j = 0; j < NUMROW; j++) {
-//                for (int k = 0; k < NUMCOL; k++) {
-//                   lossesFile.read (gameData [i][j][k] + "");         
-//                   winsFile.read (gameData [i][j][k] + "");
-//                }
-//                out.write(" ");
-//             }
-//             out.newLine();
-//          }
-//             
-//          out.close ();
-//          
-//       } catch (IOException iox) {
-//          
-//       }
-//       return true;
-//    }
+   public boolean database () {
+   
+      numGamesRecorded = Integer.parseInt(in.readLine());      
+      try {
+      
+         
+         BufferedReader lossesFile = new BufferedReader (new FileReader("Losses.txt")); 
+         BufferedReader winsFile = new BufferedReader (new FileReader("Wins.txt")); 
+         
+		 numWinsRecorded = winsFile.read ();
+		 numLossesRecorded = lossesFile.read ();
+          
+          //gameData [i][j][k] + ""  
+         for (int i = 0; i < numMove; i++) {
+            for (int j = 0; j < NUMROW; j++)  {
+               for (int k = 0; k < NUMCOL; k++) {
+                  lossesFile.read ();         
+                  winsFile.read ();
+               }
+               //out.write(" ");
+            }
+            //out.newLine();
+         }
+            
+         //out.close ();
+         
+      } catch (IOException iox) {
+         
+      }
+      return true;
+   }
    
    
 // CHECKS FOR WINNING MOVES TO PLAY
@@ -408,9 +414,6 @@ public class ConnectFour {
                            
                            grid [secondaryRow][p] = 1;
                            
-                        
-                           
-                                      
                            if (secondaryRow > 0) {
                            
                               grid[secondaryRow - 1][p] = 0;
@@ -506,9 +509,7 @@ public class ConnectFour {
                            
                         }
                         
-                        
-                        
-                          
+
                      }
                   
                   }
@@ -538,8 +539,7 @@ public class ConnectFour {
    
       int primaryRow = -1;
       int secondaryRow = -1;
-   
-   
+
       for (int i = NUMCOL - 1; i >= 0; i--){ 
          primaryRow = findRow(i);
          if (primaryRow != -1 && primaryRow != 0){
@@ -584,11 +584,8 @@ public class ConnectFour {
                         return true;
                      }
                   }
-               } 
-            
-                     
-            }
-                  
+               }         
+            }                  
             grid[primaryRow][i] = EMPTY;      
          }             
       
@@ -731,10 +728,7 @@ public class ConnectFour {
                            }
                            
                         }
-                        
-                        
-                        
-                          
+  
                      }
                   
                   }
@@ -953,14 +947,14 @@ public class ConnectFour {
                   
                   
                   curPlayer = 1;		
+                  
+                  if (primaryRow > 0) {
                      
-                     if (primaryRow != 0) {
-                        curPlayer = 0;
-                        grid [primaryRow - 1][i] = 0;
-                        win = checkIfWin ();
-                        grid [primaryRow - 1][i] = EMPTY;
-                     }      
-                     
+                     curPlayer = 0;
+                     grid [primaryRow - 1][i] = 0;
+                     win = checkIfWin ();
+                     grid [primaryRow - 1][i] = EMPTY;
+                  }   
                      if (!win) {
                         
                         win = false;
@@ -989,7 +983,6 @@ public class ConnectFour {
                         }
                         
                      }
- 
                   grid [secondaryRow][p] = EMPTY; 
                }
             
