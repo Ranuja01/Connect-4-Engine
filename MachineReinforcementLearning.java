@@ -11,77 +11,61 @@ import java.lang.*;
 import java.sql.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.io.*;
-public class ConnectFour {
+public class MachineReinforcementLearning {
    
    
    final int EMPTY = 5;
-   final int NUMPLAYER;    // number  of players
-   final int NUMROW;       // number of rows on the game board
-   final int NUMCOL;       // number of columns on the game board
-   final int MAXGAME;      // number of games needed to win to win a match
+   final int NUMPLAYER = 2;    // number  of players
+   final int NUMROW = 6;       // number of rows on the game board
+   final int NUMCOL = 7;       // number of columns on the game board
+   //final int MAXGAME;      // number of games needed to win to win a match
 
-   ConnectFourGUI gui;     // the gui that provides the front end of the game
-   byte numMove;            // num of move that has been made in this game
-   byte curPlayer;          // the id number of the current player
-   int playedCol = 3;
+   int numMove;            // num of move that has been made in this game
+   int curPlayer;          // the id number of the current player
    int numGamesRecorded;
-   int positionCount = -1; 
+   int positionCount = -1;
+   int playedCol = 3;
    int numLoops = 0;
-   //int numLossesRecorded;
+
    
-   byte grid[][];           // represents the grid of the game board
-   byte score[];            // represents the scores of the players
-   byte gameData [][][] = new byte [42][6][7];
-   byte lossesDataBase [][][] = new byte [100000][6][7];
-   byte winsDataBase [][][] = new byte [100000][6][7];
+   int grid[][];           // represents the grid of the game board
+   int score[];            // represents the scores of the players
+   int gameData [][][] = new int [42][6][7];
+   int lossesDataBase [][][] = new int [100000][6][7];
+   int winsDataBase [][][] = new int [100000][6][7];
    
    boolean ai;
-
-/**
-* Constructor:  ConnectFour
-*/
-   public ConnectFour(ConnectFourGUI gui) {
-      Scanner sc = new Scanner (System.in);   
-      this.gui = gui;
-      NUMPLAYER = gui.NUMPLAYER;
-      NUMROW = gui.NUMROW;
-      NUMCOL = gui.NUMCOL;
-      MAXGAME = gui.MAXGAME;
-   	 	
-      ai = true;
    
-      
-      grid = new byte [NUMROW][NUMCOL];
-      score = new byte [2];
+   
+  // int grid [][] = { {0,5,0,0,1,5,5 }, {1,5,1,1,1,5,5}, {0,5,0,0,0,5,5 }, {1,5,0,0,1,5,5 }, {0,0,1,1,0,5,5 }, {1,1,0,1,0,1,5 }};
+
+
+
+   public static void main (String [] args) {
+
+      Scanner sc = new Scanner (System.in); 
+      grid = new int [NUMROW][NUMCOL];
+      score = new int [2];
       score [0] = 0;
       score [1] = 0;      
       for (int i = 0; i < NUMROW; i++){
          for (int j = 0; j < NUMCOL; j++){
             grid [i][j] = EMPTY;
          }
+      }  
+
+      while (true){
+         curPlayer = 1;
+         ai ();
+         curPlayer = 0;
+         ai2 ();
+
+         String a = sc.nextLine();
+
       }
-      
-      loadDatabase ();
-        
-      curPlayer = 0;
-   }
-   //5555555 5555515 5551105 5550005 5551010 5550101
-   //int grid [][] = { {5,5,5,5,5,5,5 }, {5,5,5,5,5,1,5 }, {5,5,5,1,1,0,5 }, {5,5,5,0,0,0,5 }, {5,5,5,1,0,1,0 }, {5,5,5,0,1,0,1 }};
-   //int grid [][] = { {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }};
+   } 
    
-/**
-* play
-* This method will be called when a column is clicked.  Parameter "column" is 
-* the number of the column that is clicked by the user
-*/
-   public void play (int column) {
-   // TO DO:  implement the logic of the game
-      int row = findRow (column);
-      if (row != -1){
-         placePiece(column,row);
-      }
-   		
-   }  
+ 
 
 
 //    BEGINNING OF ENGINE
@@ -173,10 +157,8 @@ public class ConnectFour {
       ifWin();
       
       curPlayer = 0;
-      gui.setNextPlayer(curPlayer);
       
    }
-  
    
    public void loadDatabase () {
         
@@ -193,47 +175,51 @@ public class ConnectFour {
             
          String losses = "SELECT * FROM [Losses]"; 
          String wins =  "SELECT * FROM [Wins]";
+         
                  
          ResultSet rs = stmt.executeQuery(losses); 
+       //  ResultSet wrs = stmt.executeQuery(wins);
+         
+         //Statement statement = con.createStatement();
       
          while (rs.next() /*&& wrs.next()*/) {
                
             positionCount++;
             
             lossPosition = rs.getString ("position");
-         
+           
             lossRows = lossPosition.split(" ");
          
                       
             for (int i = 0; i < NUMROW; i++) {
                for (int j = 0; j < NUMCOL; j++) {
                   numLoops++;
-                  lossesDataBase [positionCount][i][j] = Byte.parseByte (lossRows[i].substring(j,j+1));
-               
+                  lossesDataBase [positionCount][i][j] = Integer.parseInt (lossRows[i].substring(j,j+1));
+                 
                }
-            
             }
+              
              
          }
          
          rs = stmt.executeQuery(wins);
          
          while (rs.next()) {
-          
+            
             winPosition = rs.getString ("position");
             winRows = winPosition.split(" ");
-          
+         
+                      
             for (int i = 0; i < NUMROW; i++) {
                for (int j = 0; j < NUMCOL; j++) {
                   numLoops++;
                   
-                  winsDataBase [positionCount][i][j] = Byte.parseByte (winRows[i].substring(j,j+1));
+                  winsDataBase [positionCount][i][j] = Integer.parseInt (winRows[i].substring(j,j+1));
                }
-            }  
+            }
+              
+             
          }
-         
-         positionCount++;
-         System.out.println (positionCount);
          rs.close(); 
          //statement.executeUpdate("INSERT INTO [ABC] (abc) " + "VALUES ('abcdefg')");
       
@@ -246,10 +232,6 @@ public class ConnectFour {
    
    
    public void uploadDatabase () {
-      
-      boolean duplicateFound = false;
-      int count = 0;
-      int index = 0;
             
       String lossPosition = "";
       String winPosition = "";
@@ -259,9 +241,7 @@ public class ConnectFour {
       
       String lossConcat = "";
       String winConcat = "";
-      
-      byte inverseGameData [][][] = new byte [42][6][7];      
-    
+      // Create a variable for the connection string.
       String connectionUrl = "jdbc:sqlserver://USER:1433;databaseName=Connect4Memory;user=Ranuja;password=timetwist";
    
       try (Connection con = DriverManager.getConnection(connectionUrl); Statement stmt = con.createStatement();) {
@@ -269,137 +249,94 @@ public class ConnectFour {
          String losses = "SELECT * FROM [Losses]"; 
          String wins =  "SELECT * FROM [Wins]";
          
-         
+         int inverseGameData [][][] = new int [42][6][7];
       
          
          Statement statement = con.createStatement();
          
          if (numMove > 5) {
-          
-                  
+            
             if (curPlayer == 0) {
-            
-               for (int i = 0; i < positionCount || count == 5; i++) { 
                
+               for (int k = numMove - 6; k < numMove - 1; k++) {
                   
-                  if (Arrays.deepEquals (gameData [index], lossesDataBase [i])) {
-                     count++;
-                  } else {
-                     count = 0;
-                  }
+                  lossConcat = "";
+                  winConcat = "";
                   
-                  index++;
-                  
-                  if (index == 4) {
-                     index = 0;
-                  } 
-                  
-               }
-               
-               if (count != 5) {
-                  for (int k = numMove - 6; k < numMove - 2; k++) {
-                  
-                     lossConcat = "";
-                     winConcat = "";
-                  
-                     for (int i = 0; i < NUMROW; i++) {
-                        for (int j = 0; j < NUMCOL; j++) {
-                        
-                           lossConcat += "" +gameData [k][i][j];
-                        
-                           if (gameData [k][i][j] == 5) {
-                              inverseGameData [k][i][j] = 5;
-                           } else if (gameData [k][i][j] == 1) {
-                              inverseGameData [k][i][j] = 0;
-                           }  else {
-                              inverseGameData [k][i][j] = 1;
-                           }
-                        
-                           winConcat += "" +inverseGameData [k][i][j];
-                        
-                        }
-                        if (i != NUMROW - 1) {
-                           lossConcat += " ";
-                           winConcat += " ";
-                        }
+                  for (int i = 0; i < NUMROW; i++) {
+                     for (int j = 0; j < NUMCOL; j++) {
                      
-                     
+                        lossConcat += "" +gameData [k][i][j];
+                        
+                        if (gameData [k][i][j] == 5) {
+                           inverseGameData [k][i][j] = 5;
+                        } else if (gameData [k][i][j] == 1) {
+                           inverseGameData [k][i][j] = 0;
+                        }  else {
+                           inverseGameData [k][i][j] = 1;
+                        }
+                        
+                        winConcat += "" +inverseGameData [k][i][j];
+                        
                      }
-                     lossConcat = "'" +  lossConcat + "'";
-                     winConcat = "'" +  winConcat + "'";
-                  
-                     System.out.println("lossConcat " + lossConcat);
-                     System.out.println("winConcat " + winConcat);
-                  
-                     statement.executeUpdate("INSERT INTO [Losses] (position) " + "VALUES (" + lossConcat + ")"); 
-                     //System.out.println("AAAAAA");
-                     statement.executeUpdate("INSERT INTO [Wins] (position) " + "VALUES (" + winConcat + ")"); 
-                  } 
-               }
-               
-                      
-            } else {
-            
-               for (int i = 0; i < positionCount || count == 5; i++) { 
-               
-                  
-                  if (Arrays.deepEquals (gameData [i], lossesDataBase [i])) {
-                     count++;
-                  } else {
-                     count = 0;
+                     if (i != NUMROW - 1) {
+                        lossConcat += " ";
+                        winConcat += " ";
+                     }
+                     
+                     
                   }
+                  lossConcat = "'" +  lossConcat + "'";
+                  winConcat = "'" +  winConcat + "'";
                   
-                  index++;
+                  System.out.println("lossConcat " + lossConcat);
+                  System.out.println("winConcat " + winConcat);
                   
-                  if (index == 4) {
-                     index = 0;
-                  } 
-                  
-               }
+                  statement.executeUpdate("INSERT INTO [Losses] (position) " + "VALUES (" + lossConcat + ")"); 
+                  System.out.println("AAAAAA");
+                  statement.executeUpdate("INSERT INTO [Wins] (position) " + "VALUES (" + winConcat + ")"); 
+               }        
+            } else {
+               for (int k = numMove - 5; k < numMove - 1; k++) {
                
-               if (count != 5) {
-               
-                  for (int k = numMove - 6; k < numMove - 2; k++) {
+                  lossConcat = "";
+                  winConcat = "";
                   
-                     lossConcat = "";
-                     winConcat = "";
-                  
-                     for (int i = 0; i < NUMROW; i++) {
-                        for (int j = 0; j < NUMCOL; j++) {
+                  for (int i = 0; i < NUMROW; i++) {
+                     for (int j = 0; j < NUMCOL; j++) {
+                     
+                        winConcat += "" +gameData [k][i][j];
                         
-                           winConcat += "" +gameData [k][i][j];
-                        
-                           if (gameData [k][i][j] == 5) {
-                              inverseGameData [k][i][j] = 5;
-                           } else if (gameData [k][i][j] == 1) {
-                              inverseGameData [k][i][j] = 0;
-                           }  else {
-                              inverseGameData [k][i][j] = 1;
-                           }
-                        
-                           lossConcat += "" +inverseGameData [k][i][j];
-                        
+                        if (gameData [k][i][j] == 5) {
+                           inverseGameData [k][i][j] = 5;
+                        } else if (gameData [k][i][j] == 1) {
+                           inverseGameData [k][i][j] = 0;
+                        }  else {
+                           inverseGameData [k][i][j] = 1;
                         }
-                        if (i != NUMROW - 1) {
-                           lossConcat += " ";
-                           winConcat += " ";
-                        }
+                        
+                        lossConcat += "" +inverseGameData [k][i][j];
+                        
+                     }
+                     if (i != NUMROW - 1) {
+                        lossConcat += " ";
+                        winConcat += " ";
+                     }
                      
                      
-                     }          
+                  }
+                  lossConcat = "'" +  lossConcat + "'";
+                  winConcat = "'" +  winConcat + "'";
                   
-                     lossConcat = "'" +  lossConcat + "'";
-                     winConcat = "'" +  winConcat + "'";
+                  System.out.println("lossConcat " + lossConcat);
+                  System.out.println("winConcat " + winConcat);
                   
-                     System.out.println("lossConcat " + lossConcat);
-                     System.out.println("winConcat " + winConcat);
-                  
-                     statement.executeUpdate("INSERT INTO [Losses] (position) " + "VALUES (" + lossConcat + ")"); 
-                    // System.out.println("BBBBB");
-                     statement.executeUpdate("INSERT INTO [Wins] (position) " + "VALUES (" + winConcat + ")"); 
-                  } 
-               }
+                  statement.executeUpdate("INSERT INTO [Losses] (position) " + "VALUES (" + lossConcat + ")"); 
+                  System.out.println("BBBBB");
+                  statement.executeUpdate("INSERT INTO [Wins] (position) " + "VALUES (" + winConcat + ")"); 
+               } 
             }
+         
          }
       }
       
@@ -412,9 +349,7 @@ public class ConnectFour {
       
       for (int i = 0; i < positionCount; i++) {
          numLoops++;
-         
-         if (Arrays.deepEquals(grid, lossesDataBase [i])) { 
-            //System.out.println ("ABCDEFG");                 
+         if (Arrays.equals(grid, lossesDataBase [i])) {                  
             return true;
          } 
       }
@@ -428,20 +363,22 @@ public class ConnectFour {
       for (int i = 0; i < positionCount; i++) {
         
       
-         if (Arrays.deepEquals(grid, winsDataBase [i])) {                  
+         if (Arrays.equals(grid, winsDataBase [i])) {                  
                   
                   
-            for (int j = 0; j < NUMROW; j++) {
+            for (int j = 0; i < NUMROW; j++) {
                      
                for (int k = 0; k < NUMCOL; k++) {
                   numLoops++;
                   if (i != positionCount - 2) {
+                        
+                     
                   
                      if (winsDataBase [i + 1][j][k] != grid [j][k]) {
                      
+                     
                         curPlayer = 1;
-                        System.out.println("DATABASE PLAYS: COLUMN: " + j + " ROW: " + k);
-                        gui.setPiece(k,j,curPlayer);                         
+                        System.out.println("DATABASE PLAYS: COLUMN: " + j + " ROW: " + k);                        
                         grid [k][j] = 1;
                         playedCol = j;
                         return true;
@@ -460,7 +397,9 @@ public class ConnectFour {
       
    }
    
-
+   
+   
+   
 // CHECKS FOR WINNING MOVES TO PLAY
    
    public boolean winningMove () {
@@ -476,7 +415,7 @@ public class ConnectFour {
             win = checkIfWin();
             grid [row][i] = EMPTY;
             if (win){
-               gui.setPiece(row,i,curPlayer);
+
                System.out.println("WINNING MOVE PLAYS: COLUMN: " + i + " ROW: " + row);
                grid [row][i] = 1;
                return true;
@@ -507,7 +446,7 @@ public class ConnectFour {
             curPlayer = 1;	
                   
             if (win){
-               gui.setPiece(row,i,curPlayer);
+
                System.out.println("BLOCK PLAYS: COLUMN: " + i + " ROW: " + row);
                grid [row][i] = 1;
                playedCol = i;
@@ -528,13 +467,13 @@ public class ConnectFour {
       boolean win = false;
       boolean moveFound = false;
       boolean winMethodAchieved = false;
-      
       int numWinMethods = 0;
       int recordColumn = 0;
       int recordRow = 0;
    
       int primaryRow = -1;
       int secondaryRow = -1;
+   
    
       for (int i = NUMCOL - 1; i >= 0; i--){ 
       
@@ -599,7 +538,7 @@ public class ConnectFour {
                            }
                         
                         }
-                        gui.setPiece(primaryRow,recordColumn,curPlayer);                         
+                     
                         grid [primaryRow][recordColumn] = 1;
                            
                         System.out.println("ADVANCED BLOCK FORCES: COLUMN: " + recordColumn + " ROW: " + primaryRow );
@@ -612,7 +551,7 @@ public class ConnectFour {
                      if (moveFound) {
                         curPlayer = 1;
                         System.out.println("ADVANCED BLOCK PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        gui.setPiece(primaryRow,i,curPlayer);                         
+                     
                         grid [primaryRow][i] = 1;
                         playedCol = i;
                         grid [secondaryRow][p] = EMPTY;
@@ -620,6 +559,7 @@ public class ConnectFour {
                      }
                   } 
                }
+            
                      
             }
                   
@@ -692,7 +632,7 @@ public class ConnectFour {
                               if (win) {
                                  curPlayer = 1;
                                  System.out.println("DEFENSIVE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 gui.setPiece(primaryRow,i,curPlayer);                         
+                        
                                  grid[primaryRow][i] = 1;
                                  playedCol = i;
                                  grid [secondaryRow][p] = EMPTY;
@@ -768,7 +708,7 @@ public class ConnectFour {
                               
                               curPlayer = 1;
                               System.out.println("THIRD EYE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                              gui.setPiece(primaryRow,i,curPlayer);                         
+                      
                               grid[primaryRow][i] = 1;
                               playedCol = i;
                               grid [secondaryRow][j] = EMPTY;
@@ -847,7 +787,7 @@ public class ConnectFour {
                      if (moveFound) {
                         curPlayer = 1;
                         System.out.println("ADVANCED MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        gui.setPiece(primaryRow,i,curPlayer);                         
+                    
                         grid [primaryRow][i] = 1;
                         playedCol = i;
                         grid [secondaryRow][p] = EMPTY;
@@ -925,7 +865,7 @@ public class ConnectFour {
                               
                                  curPlayer = 1;
                                  System.out.println("FORCE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 gui.setPiece(primaryRow,i,curPlayer);                         
+                        
                                  grid[primaryRow][i] = 1;
                                  playedCol = i;
                                  grid [secondaryRow][p] = EMPTY;
@@ -994,7 +934,7 @@ public class ConnectFour {
                               
                               curPlayer = 1;
                               System.out.println("GODS EYE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                              gui.setPiece(primaryRow,i,curPlayer);                         
+                        
                               grid[primaryRow][i] = 1;
                               playedCol = i;
                               grid [secondaryRow][j] = EMPTY;
@@ -1194,14 +1134,14 @@ public class ConnectFour {
                         return true;
                      }
                   } else {
-                     System.out.println("DATABASE REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
+                     System.out.println("DATABASE PLAYS REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
                   }
                   
                   
                   if (!databaseCheck) {
                      curPlayer = 1;
                      System.out.println("POSITIONAL MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                     gui.setPiece(primaryRow,i,curPlayer);                         
+                        
                      grid[primaryRow][i] = 1;
                      playedCol = i;
                      return true;   
@@ -1286,13 +1226,13 @@ public class ConnectFour {
                               return true;
                            }
                         } else {
-                           System.out.println("DATABASE REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
+                           System.out.println("DATABASE PLAYS REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
                         }
                         
                         if (!databaseCheck) {
                         
                            System.out.println("ATTACKING MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                           gui.setPiece(primaryRow,i,curPlayer);                         
+                      
                            grid [primaryRow][i] = 1;                           
                            grid [secondaryRow][p] = EMPTY;
                            playedCol = i;
@@ -1358,7 +1298,7 @@ public class ConnectFour {
              
                if (numTries > 4000) {
                   curPlayer = 1;
-                  gui.setPiece(row,column,curPlayer);
+
                   grid [row][column] = 1;
                   playedCol = column;
                   System.out.println("REGULAR MOVE FORCES: COLUMN: " + column + " ROW: " + row);
@@ -1372,14 +1312,14 @@ public class ConnectFour {
                      
                      grid[row][column] = 1;
                      databaseCheck = lossesMemoryCheck ();
-                     grid[row][column] = EMPTY;
+
                         
                      if (!databaseCheck) {
                         if (winsMemoryCheck ()){
                            loop = false;
                         }
                      } else {
-                        System.out.println("DATABASE REDIRECTS: COLUMN: " + column + " ROW: " + row);
+                        System.out.println("DATABASE PLAYS REDIRECTS: COLUMN: " + column + " ROW: " + row);
                      
                      }
                         
@@ -1402,7 +1342,7 @@ public class ConnectFour {
                   }
                   if (!win  && !foresight &&!databaseCheck) {
                      curPlayer = 1;
-                     gui.setPiece(row,column,curPlayer);
+
                      grid [row][column] = 1;
                      playedCol = column;
                      System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
@@ -1416,7 +1356,7 @@ public class ConnectFour {
                
             } else {
                curPlayer = 1;
-               gui.setPiece(row,column,curPlayer);
+
                grid [row][column] = 1;
                playedCol = column;
                System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
@@ -1602,38 +1542,7 @@ public class ConnectFour {
 
    
   // END OF ENGINE 
-   
 
-   public void placePiece (int column,int row){
-      
-      gui.setPiece(row,column,curPlayer);
-      grid [row][column] = curPlayer;	
-      
-     // gameData [numMove] = grid.clone();
-      for (int i = 0; i < NUMROW; i++){
-         for (int j = 0; j < NUMCOL; j++){
-            gameData [numMove][i][j] = grid [i][j];
-         }
-      }
-      
-      numMove++;   
-      System.out.println("\nPERSON PLAYS: COLUMN: " + column + " ROW: " + row + " MOVE: " + numMove);
-        
-      ifWin();
-      
-      if (ai == true){        
-         ai ();	
-      } else  {
-         if (curPlayer == 0){
-            curPlayer = 1;
-         } 
-         else {
-            curPlayer = 0;
-         }
-      }  
-      
-   						    
-   }
 
    public void ifWin (){
       
@@ -1641,64 +1550,28 @@ public class ConnectFour {
       if (win) {   
       
          score [curPlayer]++;
-         gui.setPlayerScore(curPlayer, score[curPlayer]);
-         
+                  
          uploadDatabase ();
-         
-         
-         if (score [curPlayer] == 3){
-            gui.showFinalWinnerMessage(curPlayer);
-         } 
-          
-         gui.showWinnerMessage(curPlayer);
-         
-         try {
-            BufferedWriter out = null;
-            BufferedReader in = null;
-            if (curPlayer == 0) {
-               out = new BufferedWriter (new FileWriter ("Losses.txt"));
-               in = new BufferedReader (new FileReader("Losses.txt")); 
-            } else {
-               out = new BufferedWriter (new FileWriter ("Wins.txt"));
-               in = new BufferedReader (new FileReader("Wins.txt")); 
-            }
-            
-            
-            
-            for (int i = 0; i < numMove; i++) {
-               for (int j = 0; j < NUMROW; j++) {
-                  for (int k = 0; k < NUMCOL; k++) {
-                     out.write (gameData [i][j][k] + "");         
-                  }
-                  out.write(" ");
-               }
-               out.newLine();
-            }
-            
-            out.close ();
-         
-         } catch (IOException iox) {
-         
-         }
+
          
          for (int i = 0; i < NUMROW; i++){
             for (int j = 0; j < NUMCOL; j++){
                grid [i][j] = EMPTY;
             }
          }  
-         gui.resetGameBoard();
+
          curPlayer = 0;
          numMove = 0;
          playedCol = 3;
+         
       } else if (numMove == 42) {
-         gui.showTieGameMessage();
          
          for (int i = 0; i < NUMROW; i++){
             for (int j = 0; j < NUMCOL; j++){
                grid [i][j] = EMPTY;
             }
          }  
-         gui.resetGameBoard();
+
          curPlayer = 0;
          numMove = 0;
          playedCol = 3;
