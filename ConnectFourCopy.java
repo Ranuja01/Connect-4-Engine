@@ -5,60 +5,94 @@
 * game, which allows two players to drop
 * checkers into a grid until one achieves
 * four checkers in a straight line.
-*/	import java.util.Scanner;
+*/	
+import java.util.*;
 import java.lang.*;
+import java.sql.*;
 import java.util.concurrent.ThreadLocalRandom;
-public class ConnectFourCopy {
+import java.io.*;
+public class ConnectFour {
+   
+   
+   final int EMPTY = 5;
+   final int NUMPLAYER;    // number  of players
+   final int NUMROW;       // number of rows on the game board
+   final int NUMCOL;       // number of columns on the game board
+   final int MAXGAME;      // number of games needed to win to win a match
+
+   ConnectFourGUI gui;     // the gui that provides the front end of the game
+   byte numMove;            // num of move that has been made in this game
+   byte curPlayer;          // the id number of the current player
+   int playedCol = 3;
+   int numGamesRecorded;
+   int positionCount = -1; 
+   int numLoops = 0;
+   //int numLossesRecorded;
+   
+   Positions grid = new Positions();   // represents the grid of the game board
+   byte score[];            // represents the scores of the players
+   
+   Games gameData = new Games (42);
+   Games lossesDataBase = new Games (100000);
+   Games winsDataBase = new Games (100000);
    
    
    
-   public static int EMPTY = 5;
-   public static int NUMPLAYER = 2;    // number  of players
-   public static int NUMROW = 6;       // number of rows on the game board
-   public static int NUMCOL = 7;       // number of columns on the game board
-   public static int MAXGAME;      // number of games needed to win to win a match
-   
-   public static int numMove;            // num of move that has been made in this game
-   public static int curPlayer;          // the id number of the current player
-   public static int grid[][];           // represents the grid of the game board
-   public static int score[];            // represents the scores of the players
-   public static boolean ai;
-   public static int playedCol = 3; 
-   public static int playedCol2 = 3;
+   // byte gameData [][][] = new byte [42][6][7];
+//    byte lossesDataBase [][][] = new byte [100000][6][7];
+//    byte winsDataBase [][][] = new byte [100000][6][7];
+
+
+/**
+* Constructor:  ConnectFour
+*/
+   public ConnectFour(ConnectFourGUI gui) {
+      Scanner sc = new Scanner (System.in);   
+      this.gui = gui;
+      NUMPLAYER = gui.NUMPLAYER;
+      NUMROW = gui.NUMROW;
+      NUMCOL = gui.NUMCOL;
+      MAXGAME = gui.MAXGAME;
       
-   public static void main (String [] args) {
-   // TO DO:  implement the logic of the game
-      //int row = findRow (column);
-      Scanner sc = new Scanner (System.in); 
-      grid = new int [NUMROW][NUMCOL];
-      score = new int [2];
+      grid = new byte [NUMROW][NUMCOL];
+      score = new byte [2];
       score [0] = 0;
       score [1] = 0;      
       for (int i = 0; i < NUMROW; i++){
          for (int j = 0; j < NUMCOL; j++){
             grid [i][j] = EMPTY;
          }
-      }  
-     // curPlayer = 1; 
-      while (true){
-         curPlayer = 1;
-         ai ();
-         curPlayer = 0;
-         ai2 ();
-         //ifWin();	
-         //System.out.println("SDF");
-         String a = sc.nextLine();
-         //System.out.println("SS");
       }
+      
+      loadDatabase ();
+        
+      curPlayer = 0;
+   }
+   //5555555 5555515 5551105 5550005 5551010 5550101
+   //int grid [][] = { {5,5,5,5,5,5,5 }, {5,5,5,5,5,1,5 }, {5,5,5,1,1,0,5 }, {5,5,5,0,0,0,5 }, {5,5,5,1,0,1,0 }, {5,5,5,0,1,0,1 }};
+   //int grid [][] = { {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }, {5,5,5,5,5,5,5 }};
+   
+/**
+* play
+* This method will be called when a column is clicked.  Parameter "column" is 
+* the number of the column that is clicked by the user
+*/
+   public void play (int column) {
+   // TO DO:  implement the logic of the game
+      int row = findRow (column);
+      if (row != -1){
+         placePiece(column,row);
+      }
+   		
    }  
 
 
 //    BEGINNING OF ENGINE
 
 
-   public static int findRow (int column){
+   public int findRow (int column){
    
-      int row = NUMROW -1; 
+      int row = NUMROW - 1; 
       boolean loop = true;
       
       while (loop) {
@@ -73,13 +107,16 @@ public class ConnectFourCopy {
       return row;					    
    }
    
+   // MAKE ARRAY FOR REGULAR MOVE TO KNOW WHERE NOT TO PLACE
    
    
-   public static void ai () {
+   public void ai () {
          
       boolean moveFound = false;
-   
-      System.out.println("\nAI: " + curPlayer);
+      curPlayer = 1;
+      gui.setNextPlayer(curPlayer);
+      numLoops = 0;
+      System.out.println("\nAI: ");
       if (!winningMove()) {
          
          if (numMove >= 5){ 
@@ -97,12 +134,21 @@ public class ConnectFourCopy {
          } 
          
          if (!moveFound) {
+            moveFound = thirdEye ();
+         }
+                 
+         if (!moveFound) {
             moveFound = advancedMove ();
          }
          
          if (!moveFound) {
             moveFound = forceMove ();
          }
+         
+         if (!moveFound) {
+            moveFound = godsEye ();
+         }
+         
          
          if (!moveFound) {
             moveFound = positionalMove ();
@@ -116,29 +162,222 @@ public class ConnectFourCopy {
             regularMove ();  
          }  
       }   
-      numMove++;  
-      ifWin();
-   
       
+      //gameData [numMove] = grid.clone();
+      for (int i = 0; i < NUMROW; i++){
+         for (int j = 0; j < NUMCOL; j++){
+            gameData.game [numMove].setCell (i,j,grid [i][j]);
+         }
+      }
+      numMove++;
+      
+      System.out.println("Number of loops: " + numLoops);
+      
+      ifWin();
+      
+      curPlayer = 0;
+      gui.setNextPlayer(curPlayer);
+      
+   }
+  
+   
+   public void loadDatabase () {
+        
+      String lossPosition = "";
+      String winPosition = "";
+      
+      String [] lossRows;
+      String [] winRows;
+      
+      // Create a variable for the connection string.
+      String connectionUrl = "jdbc:sqlserver://USER:1433;databaseName=Connect4Memory;user=Ranuja;password=timetwist";
+      Connection con = DriverManager.getConnection(connectionUrl); 
+   
+         
+      Statement stmt = con.createStatement();
+      ResultSet rs = stmt.executeQuery("SELECT position FROM Losses");
+   
+      while (rs.next()) {
+       //  count++;
+         positionCount++;
+         byte[] st = (byte[]) rs.getObject(1);
+         
+         ByteArrayInputStream baip = new ByteArrayInputStream(st);
+         ObjectInputStream ois = new ObjectInputStream(baip);
+         
+         lossesDataBase [positionCount] = (Games) ois.readObject();
+      
+      }
+      
+      rs = stmt.executeQuery("SELECT position FROM Wins");
+      int count = -1;
+      
+      while (rs.next()) {
+         count++;
+         byte[] st = (byte[]) rs.getObject(1);
+         
+         ByteArrayInputStream bais = new ByteArrayInputStream(st);
+         ois = new ObjectInputStream(bais);
+         
+         winsDataBase [count] = (Games) ois.readObject();
+      
+      }
+      /////
+       
+   
+      positionCount++;
+      
+      System.out.println (positionCount);
+      
+      stmt.close();
+      rs.close();
+      con.close();
+      
+   
    }
    
    
+   public void uploadDatabase () {
+      
+      boolean duplicateFound = false;
+      int count = 0;
+      int index = 0;
+            
+      String lossPosition = "";
+      String winPosition = "";
+      
+      String [] lossRows;
+      String [] winRows;
+      
+      String lossConcat = "";
+      String winConcat = "";
+      
+      //byte inverseGameData [][][] = new byte [42][6][7];   
+      Games inverseGameData = new Games (42);   
+    
+      String connectionUrl = "jdbc:sqlserver://USER:1433;databaseName=Connect4Memory;user=Ranuja;password=timetwist";
+      
+      for (int k = numMove - 6; k < numMove - 2; k++) {
+         for (int i = 0; i < NUMROW; i++) {
+            for (int j = 0; j < NUMCOL; j++) {
+                        
+               lossConcat += "" +gameData [k][i][j];
+                        
+               if (gameData [k].positions.getCell(i,j) == 5) {
+                  inverseGameData [k].positions.setCell(i,j) = 5;
+               } else if (gameData [k].positions.getCell(i,j) == 1) {
+                  inverseGameData [k].positions.setCell(i,j) = 0;
+               }  else {
+                  inverseGameData [k].positions.setCell(i,j) = 1;
+               }
+            
+                        
+            }                        
+         }
+      }
+   
+      Connection con = DriverManager.getConnection(connectionUrl); 
+            
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      ObjectOutputStream oos = new ObjectOutputStream(baos);
+   
+   
+      if (curPlayer == 0) {
+         oos.writeObject(lossesDataBase);
+      
+         byte[] lossesAsBytes = baos.toByteArray();
+         PreparedStatement pstmt = con.prepareStatement("INSERT INTO Losses (position) VALUES(?)");
+      
+         ByteArrayInputStream bais = new ByteArrayInputStream(lossesAsBytes);
+      
+         pstmt.setBinaryStream(1, bais, lossesDataBase.length);
+         pstmt.executeUpdate();
+      } else {
+         oos.writeObject(winsDataBase);
+      
+         byte[] winsAsBytes = baos.toByteArray();
+         PreparedStatement pstmt = con.prepareStatement("INSERT INTO Wins (position) VALUES(?)");
+      
+         bais = new ByteArrayInputStream(winsAsBytes);
+      
+         pstmt.setBinaryStream(1, bais, winsAsBytes.length);
+         pstmt.executeUpdate();
+      }
+   
+   
+      pstmt.close();         
+         
+   }
+
+   
+   public boolean lossesMemoryCheck () {
+   
+      
+      if (lossesDataBase.contains(grid)) {
+         return true;
+      }     
+      return false;
+      
+   }
+   
+   public boolean winsMemoryCheck () {
+      
+   
+      
+      if (winsDataBase.contains(grid)) {                  
+         int i = winsDataBase.indexOf(grid);       
+                  
+         for (int j = 0; j < NUMROW; j++) {
+                     
+            for (int k = 0; k < NUMCOL; k++) {
+               numLoops++;
+               if (i != positionCount - 2) {
+                  
+                  if (winsDataBase [i + 1].position.getCell(j,k) != grid.getCell(j,k)) {
+                     
+                     curPlayer = 1;
+                     System.out.println("DATABASE PLAYS: COLUMN: " + j + " ROW: " + k);
+                     gui.setPiece(k,j,curPlayer);                         
+                     grid.setCell(j,k,1);
+                     playedCol = j;
+                     return true;
+                           
+                  }
+               }
+            }
+                     
+         }
+         
+      } 
+      
+      return false;
+      
+   }
+   
+
 // CHECKS FOR WINNING MOVES TO PLAY
    
-   public static boolean winningMove () {
+   public boolean winningMove () {
    
       boolean win = false;
       int row = -1;
+      
       for (int i = NUMCOL - 1; i >= 0; i--){ 
+         
          row = findRow (i);
+         numLoops++;
+         
          if (row != -1) {
-            grid [row][i] = 1;
+         
+            grid.setCell(row,i,1);
             curPlayer = 1;							
             win = checkIfWin();
-            grid [row][i] = EMPTY;
+            grid.setCell(row,i,EMPTY);
+            
             if (win){
+               gui.setPiece(row,i,curPlayer);
                System.out.println("WINNING MOVE PLAYS: COLUMN: " + i + " ROW: " + row);
-               grid [row][i] = 1;
+               grid.setCell(row,i,1);
                return true;
             }         
          }
@@ -149,7 +388,7 @@ public class ConnectFourCopy {
 
 // BLOCKS A 4TH PIECE FROM BEING PLACED IN A ROW
 
-   public static boolean block () {
+   public boolean block () {
    
       boolean win = false;
       int row = -1;
@@ -157,20 +396,24 @@ public class ConnectFourCopy {
       for (int i = NUMCOL - 1; i >= 0; i--){ 
       
          row = findRow(i);
+         numLoops++;
             
          if (row != -1) {
-            grid [row][i] = 0;
+         
+            grid.setCell(row,i,0);
             curPlayer = 0;							
             win = checkIfWin();
-            grid [row][i] = EMPTY;
+            grid.setCell(row,i,EMPTY);
             curPlayer = 1;	
                   
             if (win){
             
+               gui.setPiece(row,i,curPlayer);
                System.out.println("BLOCK PLAYS: COLUMN: " + i + " ROW: " + row);
-               grid [row][i] = 1;
+               grid.setCell(row,i,1);
                playedCol = i;
                return true;
+               
             }
          }
         
@@ -182,11 +425,12 @@ public class ConnectFourCopy {
 
 // PREVENTS THE CREATION OF A DOUBLE ATTACK
 
-   public static boolean advancedBlock () {
+   public boolean advancedBlock () {
    
       boolean win = false;
       boolean moveFound = false;
       boolean winMethodAchieved = false;
+      
       int numWinMethods = 0;
       int recordColumn = 0;
       int recordRow = 0;
@@ -194,27 +438,28 @@ public class ConnectFourCopy {
       int primaryRow = -1;
       int secondaryRow = -1;
    
-   
       for (int i = NUMCOL - 1; i >= 0; i--){ 
-         
+      
          primaryRow = findRow(i);
          
          if (primaryRow != -1 && primaryRow != 0){
-         
+            
             numWinMethods = 0;
-            grid [primaryRow][i] = 0;
+            grid.setCell(primaryRow,i,0);
             winMethodAchieved = false;
                    
             for (int p = NUMCOL - 1; p >= 0; p--){
-         
+               
                win = false;        
                secondaryRow = findRow (p);
-         
+               numLoops++;
+               
                if (secondaryRow != -1 && secondaryRow != 0) {
-                  grid [secondaryRow][p] = 0;
+                  
+                  grid.setCell(secondaryRow,p,0);                  
                   curPlayer = 0;		
                   win = checkIfWin();
-                  grid [secondaryRow][p] = EMPTY;
+                  grid.setCell(secondaryRow,p,EMPTY); 
                               
                   if (win) {                              
                      numWinMethods ++;
@@ -227,29 +472,37 @@ public class ConnectFourCopy {
                   }
                            
                   if (numWinMethods >= 2) {
-                  
-                     grid [primaryRow][i] = 1;
-                     grid[primaryRow - 1][i] = 0;
+                     
+                     grid.setCell(primaryRow,i,1);
+                     grid.setCell(primaryRow - 1,i,0);
                      curPlayer = 0;
                      win = checkIfWin();
-                     grid[primaryRow - 1][i] = EMPTY;
-                     grid [primaryRow][i] = 0;
+                     grid.setCell(primaryRow,i,EMPTY);
+                     grid.setCell(primaryRow - 1,i,EMPTY);
                                     
                      if (win){
                         
                         curPlayer = 1;
                         playedCol = i;
-                        grid[primaryRow][i] = EMPTY;
+                        grid.setCell(primaryRow,i,EMPTY);
                            
-                        if (recordRow != primaryRow - 1) {
-                           //System.out.println("AAAA");
-                           primaryRow = recordRow;
+                        if (recordRow != primaryRow - 1 && recordRow != primaryRow) {
+                           
+                           
+                           if (findRow (recordColumn) == recordRow) {
+                              primaryRow = recordRow;
+                           } 
+                           
                         } else {
-                           //System.out.println("SSS");
-                           primaryRow = secondaryRow;
-                           recordColumn = p;
+                        
+                           if (findRow (p) == secondaryRow) {
+                              primaryRow = secondaryRow;
+                              recordColumn = p;
+                           }
+                        
                         }
-                        grid [primaryRow][recordColumn] = 1;
+                        gui.setPiece(primaryRow,recordColumn,curPlayer);
+                        grid.setCell(primaryRow,recordColumn,1);                         
                            
                         System.out.println("ADVANCED BLOCK FORCES: COLUMN: " + recordColumn + " ROW: " + primaryRow );
                         return true;
@@ -261,29 +514,30 @@ public class ConnectFourCopy {
                      if (moveFound) {
                         curPlayer = 1;
                         System.out.println("ADVANCED BLOCK PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        grid [primaryRow][i] = 1;
+                        gui.setPiece(primaryRow,i,curPlayer);  
+                                               
+                        grid.setCell(primaryRow,i,1);
                         playedCol = i;
-                        grid [secondaryRow][p] = EMPTY;
+                        grid.setCell(secondaryRow,p,EMPTY);
                         return true;
                      }
                   } 
                }
-            
                      
             }
                   
-            grid[primaryRow][i] = EMPTY;      
+            grid.setCell(primaryRow,i,EMPTY);      
          }             
       
       }
-      
+   
       return false;
    }
    
 // PREVENTS A MOVE THAT WOULD FORCE A BLOCK WHICH LETS 
 // THE OPPONENT WIN BY PLACING A PIECE ON TOP OF THE BLOCK   
    
-   public static boolean defensiveMove () {
+   public boolean defensiveMove () {
    
       boolean win = false;
       int primaryRow = -1;
@@ -295,81 +549,160 @@ public class ConnectFourCopy {
          primaryRow = findRow(i);
          
          if (primaryRow != -1 && primaryRow != 0){
-         
-            grid [primaryRow][i] = 0;
+            
+            grid.setCell(primaryRow,i,0); 
             
             if (primaryRow > 0) {
                
                curPlayer = 0;	
-               grid [primaryRow][i] = 1;
-               grid [primaryRow - 1][i] = 0;	
+               grid.setCell(primaryRow,i,1);                
+               grid.setCell(primaryRow - 1,i,0); 
                win = checkIfWin();
-               grid [primaryRow - 1][i] = EMPTY;
+               grid.setCell(primaryRow - 1,i,EMPTY); 
                
                if (!win) {
                
-                  grid [primaryRow][i] = 0;
+                  grid.setCell(primaryRow,i,0);
                
-                   
                   for (int p = NUMCOL - 1; p >= 0; p--){
                      
                      win = false;        
                      secondaryRow = findRow (p);
+                     numLoops++;
                      
                      if (secondaryRow != -1 && secondaryRow != 0) {
                         
-                        grid [secondaryRow][p] = 0;
+                        grid.setCell(secondaryRow,p,0);
                         curPlayer = 0;		
                         win = checkIfWin();
-                        grid [secondaryRow][p] = EMPTY;
+                        grid.setCell(secondaryRow,p,EMPTY);
                                     
                         if (win) {                              
                            
-                           grid [secondaryRow][p] = 1;
-                           
+                           grid.setCell(secondaryRow,p,1);
                         
-                           
                                       
                            if (secondaryRow > 0) {
                            
-                              grid[secondaryRow - 1][p] = 0;
+                              grid.setCell(secondaryRow - 1,p,0);
                               curPlayer = 0;
                               win = checkIfWin();
-                              grid[secondaryRow - 1][p] = EMPTY;
+                              grid.setCell(secondaryRow - 1,p,EMPTY);
                               
                               if (win) {
                                  curPlayer = 1;
                                  System.out.println("DEFENSIVE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 grid[primaryRow][i] = 1;
+                                 gui.setPiece(primaryRow,i,curPlayer);
+                                 grid.setCell(primaryRow,i,1);                         
                                  playedCol = i;
-                                 grid [secondaryRow][p] = EMPTY;
+                                 grid.setCell(secondaryRow,p,EMPTY);
                                  return true;
                               }
                               
                            }   
                              
-                           grid [secondaryRow][p] = EMPTY;
+                           grid.setCell(secondaryRow,p,EMPTY);
                         }
                      
                      }                     
                            
                   }
-                  grid[primaryRow][i] = EMPTY;  
+                  grid.setCell(primaryRow,i,EMPTY);  
                }
                
             }
          
-            grid[primaryRow][i] = EMPTY;      
+            grid.setCell(primaryRow,i,EMPTY);      
          }             
       
       }
       System.out.println("DEFENSIVE MOVE PASSES");
       return false;
    }
+   
+  // BLOCKS A THIRD MOVE COMBINATION 
+   
+   public boolean thirdEye () {
+      
+      boolean win = false;
+      boolean combination = false;
+      int primaryRow = -1;
+      int secondaryRow = -1;
+      
+      for (int i = NUMCOL - 1; i >= 0; i--) {
+         
+         primaryRow = findRow (i);         
+         
+         if (primaryRow != -1) {
+         
+            grid.setCell(primaryRow,i,0);
+         
+            for (int j = NUMCOL - 1; j >= 0; j--){ 
+            
+               secondaryRow = findRow(j);
+               numLoops++;
+            
+               if (secondaryRow != -1) {
+                  
+                  grid.setCell(secondaryRow,j,0);
+                  curPlayer = 0;							
+                  win = checkIfWin();
+                  grid.setCell(secondaryRow,j,1);
+                  curPlayer = 0;	
+                  
+                  if (win){
+                     
+                     combination = defensiveForesight (); 
+                  
+                     if (combination == true) {
+                        
+                        if (primaryRow != 0) {
+                           
+                           grid.setCell(primaryRow,i,1);
+                           grid.setCell(primaryRow - 1,i,0);
+                        
+                           curPlayer = 0;
+                           win = checkIfWin ();
+                           
+                           grid.setCell(primaryRow,i,0);
+                           grid.setCell(primaryRow - 1,i,EMPTY);
+                           
+                           if (!win) {
+                              
+                              curPlayer = 1;
+                              System.out.println("THIRD EYE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
+                              gui.setPiece(primaryRow,i,curPlayer);                         
+                              grid.setCell(primaryRow,i,1);
+                              playedCol = i;
+                              grid.setCell(secondaryRow,j,EMPTY);
+                              return true; 
+                              
+                           }
+                           
+                        }  
+                          
+                     }
+                  
+                  }
+                  grid.setCell(secondaryRow,j,EMPTY);
+               }
+            
+            }
+         
+            grid.setCell(primaryRow,i,EMPTY);
+         
+         }
+      }
+   
+      return false;        
+   }
+   
+   
+   
 
 // CREATES A DOUBLE WIN THREAT
 
-   public static boolean advancedMove () {
+   public boolean advancedMove () {
    
       boolean win = false;
       boolean moveFound = false;
@@ -380,31 +713,39 @@ public class ConnectFourCopy {
    
    
       for (int i = NUMCOL - 1; i >= 0; i--){ 
+         
          primaryRow = findRow(i);
+         
          if (primaryRow != -1 && primaryRow != 0){
+            
             numWinMethods = 0;
-            grid [primaryRow][i] = 1;
+            grid.setCell(primaryRow,i,1);
                    
             for (int p = NUMCOL - 1; p >= 0; p--){
+               
                win = false;         
                secondaryRow = findRow (p);
+               numLoops++;
                
                if (secondaryRow != -1 && secondaryRow != 0) {
-                  grid [secondaryRow][p] = 1;
+                  
+                  grid.setCell(secondaryRow,p,1);
                   curPlayer = 1;		
                   win = checkIfWin();
-                  grid [secondaryRow][p] = EMPTY;
+                  grid.setCell(secondaryRow,p,EMPTY);
                               
                   if (win) {                              
                      numWinMethods ++;
                   }
                            
                   if (numWinMethods >= 2) {
+                  
                      if (primaryRow > 0){
-                        grid[primaryRow - 1][i] = 0;
+                        grid.setCell(primaryRow - 1,i,0);
+                     
                         curPlayer = 0;
                         win = checkIfWin();
-                        grid[primaryRow - 1][i] = EMPTY;
+                        grid.setCell(primaryRow - 1,i,EMPTY);
                                     
                         if (!win){
                            moveFound = true;
@@ -414,12 +755,15 @@ public class ConnectFourCopy {
                      }
                                  
                      if (moveFound) {
+                     
                         curPlayer = 1;
                         System.out.println("ADVANCED MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        grid [primaryRow][i] = 1;
+                        gui.setPiece(primaryRow,i,curPlayer);
+                        grid.setCell(primaryRow,i,1);                         
                         playedCol = i;
-                        grid [secondaryRow][p] = EMPTY;
+                        grid.setCell(secondaryRow,p,EMPTY);
                         return true;
+                        
                      }
                   }
                } 
@@ -427,7 +771,7 @@ public class ConnectFourCopy {
                      
             }
                   
-            grid[primaryRow][i] = EMPTY;      
+            grid.setCell(primaryRow,i,EMPTY);      
          }             
       
       }
@@ -437,7 +781,7 @@ public class ConnectFourCopy {
    
 // FORCES A BLOCK TO CREATE A WINNING THREAT
 
-   public static boolean forceMove () {
+   public boolean forceMove () {
    
       boolean win = false;
       int primaryRow = -1;
@@ -448,63 +792,70 @@ public class ConnectFourCopy {
          
          primaryRow = findRow(i);
          
-         if (primaryRow != -1 && primaryRow != 0){
-         
-            grid [primaryRow][i] = 1;
+         if (primaryRow != -1){
+            
+            grid.setCell(primaryRow,i,1);
             
             if (primaryRow > 0) {
                
-               grid [primaryRow - 1][i] = 0;
-               curPlayer = 0;		
-               win = checkIfWin();
-               grid [primaryRow - 1][i] = EMPTY;
+               if (primaryRow != 0) {
+                  
+                  grid.setCell(primaryRow - 1,i,0);
+                  curPlayer = 0;		
+                  win = checkIfWin();
+                  grid.setCell(primaryRow - 1,i,EMPTY);
+                  
+               }
+               
                
                if (!win) {
-                  grid [primaryRow][i] = 0;
+                  grid.setCell(primaryRow,i,0);
                    
                   for (int p = NUMCOL - 1; p >= 0; p--){
                   
                      win = false;        
                      secondaryRow = findRow (p);
+                     numLoops++;
                      
                      if (secondaryRow != -1 && secondaryRow != 0) {
                         
-                        grid [secondaryRow][p] = 1;
+                        grid.setCell(secondaryRow,p,1);
                         curPlayer = 1;		
                         win = checkIfWin();
-                        grid [secondaryRow][p] = EMPTY;
+                        grid.setCell(secondaryRow,p,EMPTY);
                                     
                         if (win) {                              
                            
-                           grid [secondaryRow][p] = 0;
+                           grid.setCell(secondaryRow,p,0);
                                                               
                            if (secondaryRow > 0) {
-                           
-                              grid[secondaryRow - 1][p] = 1;
+                              
+                              grid.setCell(secondaryRow - 1,p,1);
                               curPlayer = 1;
                               win = checkIfWin();
-                              grid[secondaryRow - 1][p] = EMPTY;
+                              grid.setCell(secondaryRow,p,EMPTY);
                               
                               if (win) {
                               
                                  curPlayer = 1;
                                  System.out.println("FORCE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 grid[primaryRow][i] = 1;
+                                 gui.setPiece(primaryRow,i,curPlayer);   
+                                 grid.setCell(primaryRow,i,1);                      
                                  playedCol = i;
-                                 grid [secondaryRow][p] = EMPTY;
+                                 grid.setCell(secondaryRow,p,EMPTY);
                                  return true;                            
                               }                       
                            }                    
-                           grid [secondaryRow][p] = EMPTY;
+                           grid.setCell(secondaryRow,p,EMPTY);
                         }    
                      }                             
                   }
                    
-                  grid[primaryRow][i] = EMPTY;  
+                  grid.setCell(primaryRow,i,EMPTY);  
                } 
             }    
          
-            grid [primaryRow][i] = EMPTY;      
+            grid.setCell(primaryRow,i,EMPTY);     
          }             
       
       }
@@ -512,137 +863,273 @@ public class ConnectFourCopy {
       return false;
    }
    
+   public boolean godsEye () {
+      
+      boolean win = false;
+      boolean combination = false;
+      int primaryRow = -1;
+      int secondaryRow = -1;
+      
+      for (int i = NUMCOL - 1; i >= 0; i--) {
+         
+         primaryRow = findRow (i);         
+         
+         if (primaryRow != -1) {
+            grid.setCell(primaryRow,i,1); 
+         
+            for (int j = NUMCOL - 1; j >= 0; j--){ 
+            
+               secondaryRow = findRow(j);
+               numLoops++;
+            
+               if (secondaryRow != -1) {
+                  
+                  grid.setCell(secondaryRow,j,1); 
+                  curPlayer = 1;							
+                  win = checkIfWin();
+                  grid.setCell(secondaryRow,j,0);
+                  curPlayer = 1;	///
+                  
+                  if (win){
+                     //System.out.println("AAAAAHH: " + i + " ROW: " + primaryRow);
+                     combination = defensiveForesight (); 
+                  
+                     if (combination == true) {
+                        
+                        if (primaryRow != 0) {
+                           grid.setCell(primaryRow,i,1);
+                           grid.setCell(primaryRow - 1,i,0);
+                           curPlayer = 0;                          
+                           win = checkIfWin ();
+                           grid.setCell(primaryRow - 1,i,EMPTY);
+                           
+                           if (!win) {
+                              
+                              curPlayer = 1;
+                              System.out.println("GODS EYE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
+                              gui.setPiece(primaryRow,i,curPlayer);                         
+                              grid.setCell(primaryRow,i,1);
+                              playedCol = i;
+                              grid.setCell(secondaryRow,j,EMPTY);                              
+                              return true; 
+                              
+                           }
+                           
+                        }
+                     
+                          
+                     }
+                  
+                  }
+                  grid.setCell(secondaryRow,j,EMPTY);
+               }
+            
+            }
+            
+            grid.setCell(primaryRow,i,EMPTY);
+         
+         }
+      }
+   
+      return false;        
+   }
+   
 // RETAINS POSITIONAL CONTROL BY TAKING AND BLOCKING THE CONTROL OF SQUARES
    
-   public static boolean positionalMove () {
+   public boolean positionalMove () {
       
       boolean win = false;
       boolean moveFound = false;
-      int primaryRow = -1;
+      boolean databaseCheck = false;
+   
       
-      for (int i = NUMCOL - 2; i >= 1; i--){ 
+      int primaryRow = -1;
+            
+      for (int i = NUMCOL - 1; i >= 0; i--){ 
          
+         databaseCheck = false;
          primaryRow = findRow(i);
+         numLoops++;
          
-         if (primaryRow != -1 && primaryRow != 0){
+         if (primaryRow != -1){
             
             
             if (primaryRow > 0) {
-               
-            
-               grid [primaryRow - 1][i] = 0;
+                         
+               grid.setCell(primaryRow - 1,i,0);
                curPlayer = 0;
                win = checkIfWin ();
-               grid [primaryRow - 1][i] = EMPTY;
-               
+               grid.setCell(primaryRow - 1,i,EMPTY);
                if (!win) {
-                  
-                  grid [primaryRow][i] = 1;
+                        
+                  grid.setCell(primaryRow,i,1);
                   curPlayer = 1;
                   
-                  if (grid [primaryRow][i - 1] == EMPTY) {
-                     grid [primaryRow][i - 1] = 1;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i - 1] = EMPTY;
+                  if (primaryRow != NUMROW -1) {
+                     
+                     if (i != 0 && grid.getCell(primaryRow,i - 1) == EMPTY) {
+                        grid.setCell(primaryRow,i - 1,1);
+                        win = ifHorizontal ();
+                        grid.setCell(primaryRow,i - 1,EMPTY);
+                     }
+                  
+                     if (win) {
+                        moveFound = true;
+                     }
+                                     
+                     if (i != NUMCOL - 1 && grid [primaryRow][i + 1] == EMPTY) {
+                     
+                        
+                        grid.setCell(primaryRow,i + 1,1);
+                        win = ifHorizontal ();
+                        grid.setCell(primaryRow,i + 1,EMPTY);
+                     }
+                  
+                     if (win) {
+                        moveFound = true;
+                     }
+                  
                   }
                   
-                  if (win) {
-                     moveFound = true;
-                  }
+                  grid.setCell(primaryRow,i,0);
+                  curPlayer = 0;  
                   
-                  if (grid [primaryRow][i + 1] == EMPTY) {
-                     grid [primaryRow][i + 1] = 1;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i + 1] = EMPTY;
-                  }
-                  
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  grid [primaryRow][i] = 0;
-                  curPlayer = 0;       
-                  
-                  if (grid [primaryRow][i - 1] == EMPTY) {
-                     grid [primaryRow][i - 1] = 0;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i - 1] = EMPTY;
-                  }
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  if (grid [primaryRow][i + 1] == EMPTY) {
-                     grid [primaryRow][i + 1] = 0;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i + 1] = EMPTY;
-                  }
-                  
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-               
-                  grid [primaryRow - 1][i] = 0;
+                  grid.setCell(primaryRow - 1,i,0);
                   win = ifVertical ();
-                  grid [primaryRow - 1][i] = EMPTY;
+                  grid.setCell(primaryRow - 1,i,EMPTY);
                
                   if (win) {
                      moveFound = true;
                   }
-                  
-                  if (i >= 1 && i <= NUMROW - 1) {
-                     grid [primaryRow - 1][i - 1] = 0;
-                     win = upLeft();
-                     grid [primaryRow - 1][i - 1] = EMPTY;
+               }
                
-                     if (win) {
-                        moveFound = true;
-                     }
                      
-                     grid [primaryRow + 1][i - 1] = 0;
+               if (i >= 1 && i <= NUMCOL - 1) {
+                        
+                  if (primaryRow > 0 && grid [primaryRow - 1][i - 1] == EMPTY) {
+                     
+                     grid.setCell(primaryRow - 1,i - 1,0);      
                      win = upLeft();
-                     grid [primaryRow + 1][i - 1] = EMPTY;
-               
+                     grid.setCell(primaryRow - 1,i - 1,EMPTY);      
+                           
                      if (win) {
+                        //System.out.println ("AAAAA");
                         moveFound = true;
                      }
                   }
-                  
-                  if (i >= 0 && i <= NUMROW - 2) {
-                     grid [primaryRow + 1][i + 1] = 0;
-                     win = upLeft();
-                     grid [primaryRow + 1][i + 1] = EMPTY;
-                  
-                     if (win) {
-                        moveFound = true;
-                     }
+                        
+                        
+                  if (primaryRow < NUMROW - 1 && grid [primaryRow + 1][i - 1] == EMPTY) {
                      
-                     grid [primaryRow - 1][i + 1] = 0;
+                     grid.setCell(primaryRow + 1,i - 1,0);      
                      win = upRight();
-                     grid [primaryRow - 1][i + 1] = EMPTY;
-                  
+                     grid.setCell(primaryRow + 1,i - 1,EMPTY);
+                        
                      if (win) {
+                        //System.out.println ("BBB");
                         moveFound = true;
                      }
                   }
+                        
+                        
+               }
+                  
+               if (i >= 0 && i <= NUMCOL - 2 ) {
+                        
+                  if (primaryRow < NUMROW - 1 && grid [primaryRow + 1][i + 1] == EMPTY) {
+                     
+                     grid.setCell(primaryRow + 1,i + 1,0);      
+                     win = upLeft();
+                     grid.setCell(primaryRow + 1,i + 1,EMPTY); 
+                        
+                     if (win) {
+                        //System.out.println ("CCC");
+                        moveFound = true;
+                     }
+                  }
+                        
+                  if (primaryRow > 0 && grid [primaryRow - 1][i + 1] == EMPTY) {
+                     
+                     grid.setCell(primaryRow - 1,i + 1,0);      
+                     win = upRight();
+                     grid.setCell(primaryRow - 1,i + 1,EMPTY);
+                        
+                     if (win) {
+                        //System.out.println ("D");
+                        moveFound = true;
+                     }
+                        
+                  }
+               }
+                  
+               grid.setCell(primaryRow,i,EMPTY);
+               
+               
+               
+                  
+               if (findRow (3) == 2) {
+                  
+                  moveFound = true;
+                  i = 3;
+                  primaryRow = 2;
+                     
+               } else if (grid.GetCell(2,3) == 0 && grid.GetCell(3,2) == EMPTY && grid.GetCell(4,1) == EMPTY && grid.GetCell(5,0) == EMPTY) {
+                     
+                  if (grid.GetCell(4,2) != 0 || grid.GetCell(4,3) != 0) {
+                     moveFound = true;
+                     i = 0;
+                     primaryRow = 5;
+                  }
+                     
+               } else if (grid.GetCell(2,3) == 0 && grid.GetCell(3,4) == EMPTY && grid.GetCell(4,5) == EMPTY && grid.GetCell(5,6) == EMPTY) {
+                     
+                  if (grid.GetCell(4,5) != 0 || grid.GetCell(4,4) != 0) {
+                     moveFound = true;
+                     i = 6;
+                     primaryRow = 5;
+                  }
+               }
+                  
+               if (moveFound) {
+                  curPlayer = 1;
+                  
+                  grid.setCell(primaryRow - 1,i,1);
+                  win = checkIfWin ();
+                  grid.setCell(primaryRow - 1,i,EMPTY);
+                  
+                  if (win) {
+                     moveFound = false;
+                  }
+               }
+                  
+               if (moveFound) {
+                  
+                  grid.setCell(primaryRow,i,1);
+                  databaseCheck = lossesMemoryCheck ();
+                  grid.setCell(primaryRow,i,EMPTY);
+                  
+                  if (!databaseCheck) {
+                     if (winsMemoryCheck ()){
+                        return true;
+                     }
+                  } else {
+                     System.out.println("DATABASE REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
+                  }
                   
                   
-                  
-                  if (moveFound) {
+                  if (!databaseCheck) {
                      curPlayer = 1;
                      System.out.println("POSITIONAL MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                     grid[primaryRow][i] = 1;
+                     gui.setPiece(primaryRow,i,curPlayer);                         
+                     grid.setCell(primaryRow,i,1);
                      playedCol = i;
-                     return true;     
+                     return true;   
                   }
-               } 
-               grid [primaryRow][i] = EMPTY;
-            }
-         
-         
+                  
+                    
+               }
+            } 
+            grid.setCell(primaryRow,i,EMPTY);        
          }
       }
       return false;
@@ -651,11 +1138,12 @@ public class ConnectFourCopy {
 // IMPROVES POSITIONAL PLAY BY FORCING 
 // BLOCKS IN ORDER TO GET MORE SPACIAL CONTROL 
   
-   public static boolean attackingMove () {
+   public boolean attackingMove () {
    
       boolean win = false;
       boolean horizontalWin = false;
       boolean moveFound = false;
+      boolean databaseCheck = false;
    
       int primaryRow = -1;
       int secondaryRow = -1;
@@ -663,64 +1151,81 @@ public class ConnectFourCopy {
    
       for (int i = NUMCOL - 1; i >= 0; i--){ 
          
+         databaseCheck = false;
          primaryRow = findRow(i);
          
-         if (primaryRow != -1 && primaryRow != 0){
+         if (primaryRow != -1){
             
-            grid [primaryRow][i] = 1;
+            grid.setCell(primaryRow,i,1);
                    
             for (int p = NUMCOL - 1; p >= 0; p--){
                
                win = false;         
                secondaryRow = findRow (p);
+               numLoops++;
                
                if (secondaryRow != -1 && secondaryRow != 0) {
                   
                   
                   curPlayer = 1;		
-                  
-                  if (primaryRow > 0) {
                      
+                  if (primaryRow != 0) {
                      curPlayer = 0;
-                     grid [primaryRow - 1][i] = 0;
+                     grid.setCell(primaryRow - 1,i,0);
                      win = checkIfWin ();
-                     grid [primaryRow - 1][i] = EMPTY;
+                     grid.setCell(primaryRow - 1,i,EMPTY);
+                  }      
                      
-                     if (!win) {
+                  if (!win) {
                         
-                        win = false;
-                        curPlayer = 1;
-                        if (primaryRow >= NUMROW - 3 && p != i) {
-                           grid [secondaryRow][p] = 1;  
-                           horizontalWin = ifHorizontal();
-                           win = horizontalWin;
-                           grid [secondaryRow][p] = EMPTY;                   
-                        } 
+                     win = false;
+                     curPlayer = 1;
+                     if (primaryRow >= NUMROW - 3 && p != i) {
+                        grid.setCell(secondaryRow,p,1);
+                        horizontalWin = ifHorizontal();
+                        win = horizontalWin;
+                        grid.setCell(secondaryRow,p,EMPTY);                   
+                     } 
                         
-                        if (primaryRow >= 1 && primaryRow <= NUMROW - 2 && !horizontalWin) {
-                           grid [secondaryRow][p] = 1;
-                           win = ifVertical();
-                           grid [secondaryRow][p] = EMPTY;  
+                     if (primaryRow >= 1 && primaryRow <= NUMROW - 2 && !horizontalWin) {
+                        grid.setCell(secondaryRow,p,1);
+                        win = ifVertical();
+                        grid.setCell(secondaryRow,p,EMPTY);  
+                     }
+                        
+                     if (win) {
+                        
+                        grid.setCell(primaryRow,i,1);
+                        databaseCheck = lossesMemoryCheck ();
+                        grid.setCell(primaryRow,i,EMPTY);
+                        
+                        if (!databaseCheck) {
+                           if (winsMemoryCheck ()){
+                              return true;
+                           }
+                        } else {
+                           System.out.println("DATABASE REDIRECTS: COLUMN: " + i + " ROW: " + primaryRow);
                         }
                         
-                        if (win) {
+                        if (!databaseCheck) {
                         
                            System.out.println("ATTACKING MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                           grid [primaryRow][i] = 1;                           
-                           grid [secondaryRow][p] = EMPTY;
+                           gui.setPiece(primaryRow,i,curPlayer);                         
+                           grid.setCell(primaryRow,i,1);
+                           grid.setCell(secondaryRow,p,EMPTY);                           
                            playedCol = i;
                            return true;
                         }
-                        
                      }
-                     
-                  } 
-                  grid [secondaryRow][p] = EMPTY; 
+                        
+                  }
+               
+                  grid.setCell(secondaryRow,p,EMPTY); 
                }
             
             }   
                       
-            grid[primaryRow][i] = EMPTY;   
+            grid.setCell(primaryRow,i,EMPTY);  
          }
          
       }
@@ -731,17 +1236,31 @@ public class ConnectFourCopy {
 
 // PLAYS A REGULAR MOVE IF NO SPECIAL MOVES ARE AVAILABLE
 
-   public static void regularMove () {
+   public void regularMove () {
+      
       boolean win = false;
       boolean loop = true;
+      boolean foresight = true;
+      boolean databaseCheck = false;
+      
       int row = -1;
       int column;
       int numTries = 0;
+      int length = 7;
+      
    
       while (loop) {
+         
+         databaseCheck = false;
          numTries++;
-         System.out.println("NUMTRIES: " + numTries);  
+         numLoops++;
+         
+         if (numTries % 200 == 0) {
+            System.out.println("NUMTRIES: " + numTries); 
+         }
+          
          column = chooseColumn (numTries);
+      
          row = findRow (column);
          if (row != -1) {
             
@@ -750,40 +1269,70 @@ public class ConnectFourCopy {
             curPlayer = 1;         
             if (row > 0){
                
-               grid[row - 1][column] = 0;
+               grid.setCell(row - 1,column,0);
                curPlayer = 0;
                win = checkIfWin();
-               grid[row - 1][column] = EMPTY;
+               grid.setCell(row - 1,column,EMPTY);
              
-               if (numTries > 100) {
+               if (numTries > 4000) {
                   curPlayer = 1;
-                  grid [row][column] = 1;
+                  gui.setPiece(row,column,curPlayer);
+                  grid.setCell(row,column,1);
                   playedCol = column;
-                  System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
+                  System.out.println("REGULAR MOVE FORCES: COLUMN: " + column + " ROW: " + row);
                   loop = false;
                }
                  
                if (loop && !win){
+                  win = false;
                   
-                  grid[row - 1][column] = 1;
-                  curPlayer = 1;
-                  win = checkIfWin();
-                  grid[row - 1][column] = EMPTY;
-                  
-                  if (!win && !defensiveForesight ()) {
+                  if (numTries < 2000) {
+                     
+                     grid.setCell(row,column,1);
+                     databaseCheck = lossesMemoryCheck ();
+                     grid.setCell(row,column,EMPTY);
+                        
+                     if (!databaseCheck) {
+                        if (winsMemoryCheck ()){
+                           loop = false;
+                        }
+                     } else {
+                        System.out.println("DATABASE REDIRECTS: COLUMN: " + column + " ROW: " + row);
+                     
+                     }
+                     
+                     grid.setCell(row - 1,column,1);
                      curPlayer = 1;
-                     grid [row][column] = 1;
+                     win = checkIfWin();
+                     grid.setCell(row - 1,column,EMPTY);
+                  } 
+                  
+                  if (numMove < 20) {
+                     grid.setCell(row,column,1);
+                     curPlayer = 0;
+                     foresight = defensiveForesight ();
+                     grid.setCell(row,column,EMPTY);
+                  } else {
+                     foresight = false;
+                  }
+                  if (!win  && !foresight &&!databaseCheck) {
+                     curPlayer = 1;
+                     gui.setPiece(row,column,curPlayer);
+                     grid.setCell(row,column,1);
                      playedCol = column;
                      System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
                      loop = false;
                   }
+                  
+                  
                }  
                
                 
                
             } else {
                curPlayer = 1;
-               grid [row][column] = 1;
+               gui.setPiece(row,column,curPlayer);
+               grid.setCell(row,column,1);
                playedCol = column;
                System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
                loop = false;
@@ -795,14 +1344,16 @@ public class ConnectFourCopy {
    }
 
 
-   public static int chooseColumn (int numTries) {
+   public int chooseColumn (int numTries) {
       int column = 3;
       int min = 0;
       int max = 0;
       int row = 0;;
       
       if (numTries > 50) {
-         column = (int)(Math.random() * NUMCOL);       
+      
+         column = (int)(Math.random() * NUMCOL); 
+               
       } else if (playedCol == 0 || playedCol == 1) {
          column = randomColumnGenerator (0, 2);
       } else if (playedCol == 2 ) {
@@ -818,7 +1369,7 @@ public class ConnectFourCopy {
       }
          
       if (numMove < 25) {
-         System.out.println("COLUMN: " + column);    
+         //System.out.println("COLUMN: " + column);    
          if (column >= 1 && column <= 5) {
             row = findRow (column);
             if (row != -1) {
@@ -828,8 +1379,8 @@ public class ConnectFourCopy {
                   return column;
                }
                
-               if (grid [row + 1] [column] != 0) {
-                  if (grid [row][column - 1] != 0 && grid [row][column + 1] != 0 && row > 1) {
+               if (grid.GetCell(row + 1,column) != 0) {
+                  if (grid.GetCell(row,column - 1) != 0 && grid.GetCell(row,column + 1) != 0 && row > 1) {
                      return column;
                   }
                }  
@@ -841,7 +1392,7 @@ public class ConnectFourCopy {
       return column;  
    }
    
-   public static boolean defensiveForesight () {
+   public boolean defensiveForesight () {
    
       boolean win = false;
       boolean moveFound = false;
@@ -849,832 +1400,200 @@ public class ConnectFourCopy {
    
       int primaryRow = -1;
       int secondaryRow = -1;
+      
    
    
       for (int i = NUMCOL - 1; i >= 0; i--){ 
+         
          primaryRow = findRow(i);
-         if (primaryRow != -1 && primaryRow != 0){
+         
+         if (primaryRow != -1) {
+            
             numWinMethods = 0;
-            grid [primaryRow][i] = 0;
-                   
-            for (int p = NUMCOL - 1; p >= 0; p--){
-               win = false;         
-               secondaryRow = findRow (p);
-               
-               if (secondaryRow != -1 && secondaryRow != 0) {
-                  grid [secondaryRow][p] = 0;
-                  curPlayer = 0;		
-                  win = checkIfWin();
-                  grid [secondaryRow][p] = EMPTY;
-                              
-                  if (win) {                              
-                     numWinMethods ++;
-                  }
-                           
-                  if (numWinMethods >= 2) {
-                     if (primaryRow > 0){
-                        grid[primaryRow - 1][i] = 1;
-                        curPlayer = 1;
-                        win = checkIfWin();
-                        grid[primaryRow - 1][i] = EMPTY;
-                                    
-                        if (!win){
-                           moveFound = true;
-                        }
-                     } else {
-                        moveFound = true;
-                     }
-                                 
-                     if (moveFound) {
-                        grid [secondaryRow][p] = EMPTY;
-                        return true;
-                     }
-                  }
-               } 
+            grid.setCell(primaryRow,i,curPlayer);
             
-                     
-            }
-                  
-            grid[primaryRow][i] = EMPTY;      
-         }             
-      
-      }
-      return false;
-   }
-   
-   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   
-   public static void ai2 () {
-         
-      boolean moveFound = false;
-   
-      System.out.println("\nAI: " + curPlayer);
-      if (!winningMove2()) {
-         
-         if (numMove >= 5){ 
-            moveFound = block2 ();
-         
-         }
-      
-         if (numMove >=3 && !moveFound) {
-            moveFound = advancedBlock2();
-         
-         } 
-         
-         if (!moveFound) {
-            moveFound = defensiveMove2 ();
-         } 
-         
-         if (!moveFound) {
-            moveFound = advancedMove2 ();
-         }
-         
-         if (!moveFound) {
-            moveFound = forceMove2 ();
-         }
-         
-         // if (!moveFound) {
-      //             moveFound = positionalMove2 ();
-      //          } 
-         
-         if (!moveFound) {
-            moveFound = attackingMove2 ();
-         }  
-      
-         if (!moveFound) {
-            regularMove2 ();  
-         }  
-      }   
-      numMove++;  
-      ifWin();
-   
-      
-   }
-   
-   
-// CHECKS FOR WINNING MOVES TO PLAY
-   
-   public static boolean winningMove2 () {
-   
-      boolean win = false;
-      int row = -1;
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         row = findRow (i);
-         if (row != -1) {
-            grid [row][i] = 0;
-            curPlayer = 0;							
-            win = checkIfWin();
-            grid [row][i] = EMPTY;
-            if (win){
-               System.out.println("WINNING MOVE PLAYS: COLUMN: " + i + " ROW: " + row);
-               grid [row][i] = 0;
-               return true;
-            }         
-         }
-      }
-            
-      return false;   
-   }
-
-// BLOCKS A 4TH PIECE FROM BEING PLACED IN A ROW
-
-   public static boolean block2 () {
-   
-      boolean win = false;
-      int row = -1;
-      
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-      
-         row = findRow(i);
-            
-         if (row != -1) {
-            grid [row][i] = 1;
-            curPlayer = 1;							
-            win = checkIfWin();
-            grid [row][i] = EMPTY;
-            curPlayer = 0;	
-                  
-            if (win){
-            
-               System.out.println("BLOCK PLAYS: COLUMN: " + i + " ROW: " + row);
-               grid [row][i] = 0;
-               playedCol2 = i;
-               return true;
-            }
-         }
-        
-      }     
-      return false;
-   }
-
-
-
-// PREVENTS THE CREATION OF A DOUBLE ATTACK
-
-   public static boolean advancedBlock2 () {
-   
-      boolean win = false;
-      boolean moveFound = false;
-      boolean winMethodAchieved = false;
-      int numWinMethods = 0;
-      int recordColumn = 0;
-      int recordRow = 0;
-   
-      int primaryRow = -1;
-      int secondaryRow = -1;
-   
-   
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         primaryRow = findRow(i);
-         if (primaryRow != -1 && primaryRow != 0){
-            numWinMethods = 0;
-            grid [primaryRow][i] = 1;
-                   
-            for (int p = NUMCOL - 1; p >= 0; p--){
-               win = false;        
-               secondaryRow = findRow (p);
-               if (secondaryRow != -1 && secondaryRow != 0) {
-                  grid [secondaryRow][p] = 1;
-                  curPlayer = 1;		
-                  win = checkIfWin();
-                  grid [secondaryRow][p] = EMPTY;
-                              
-                  if (win) {                              
-                     numWinMethods ++;
-                  }
-                  
-                  if (numWinMethods == 1 && !winMethodAchieved) {
-                     recordColumn = p;
-                     recordRow = secondaryRow;
-                     winMethodAchieved = true;
-                  }
-                           
-                  if (numWinMethods >= 2) {
-                  
-                     grid [primaryRow][i] = 0;
-                     grid[primaryRow - 1][i] = 1;
-                     curPlayer = 1;
-                     win = checkIfWin();
-                     grid[primaryRow - 1][i] = EMPTY;
-                     grid [primaryRow][i] = 1;
-                                    
-                     if (win){
-                        
-                        curPlayer = 1;
-                        playedCol2 = i;
-                        grid[primaryRow][i] = EMPTY;
-                           
-                        if (recordRow != primaryRow - 1) {
-                           primaryRow = recordRow;
-                        } else {
-                           primaryRow = secondaryRow;
-                           recordColumn = p;
-                        }
-                        grid [primaryRow][recordColumn] = 0;
-                           
-                        System.out.println("ADVANCED BLOCK FORCES: COLUMN: " + recordColumn + " ROW: " + primaryRow );
-                        return true;
-                     } else {
-                        moveFound = true;
-                     }
-                  
-                                 
-                     if (moveFound) {
-                        curPlayer = 0;
-                        System.out.println("ADVANCED BLOCK PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        grid [primaryRow][i] = 0;
-                        playedCol2 = i;
-                        grid [secondaryRow][p] = EMPTY;
-                        return true;
-                     }
-                  } 
-               }
-            
-                     
-            }
-                  
-            grid[primaryRow][i] = EMPTY;      
-         }             
-      
-      }
-      
-      return false;
-   }
-   
-// PREVENTS A MOVE THAT WOULD FORCE A BLOCK WHICH LETS 
-// THE OPPONENT WIN BY PLACING A PIECE ON TOP OF THE BLOCK   
-   
-   public static boolean defensiveMove2 () {
-   
-      boolean win = false;
-      int primaryRow = -1;
-      int secondaryRow = -1;
-   
-   
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         
-         primaryRow = findRow(i);
-         
-         if (primaryRow != -1 && primaryRow != 0){
-         
-            grid [primaryRow][i] = 1;
+            changeCurPlayer ();
             
             if (primaryRow > 0) {
                
-               curPlayer = 1;	
-               grid [primaryRow][i] = 0;
-               grid [primaryRow - 1][i] = 1;	
+               grid.setCell(primaryRow - 1,i,curPlayer);
                win = checkIfWin();
-               grid [primaryRow - 1][i] = EMPTY;
-               
-               if (!win) {
-               
-                  grid [primaryRow][i] = 1;
-               
-                   
-                  for (int p = NUMCOL - 1; p >= 0; p--){
-                     
-                     win = false;        
-                     secondaryRow = findRow (p);
-                     
-                     if (secondaryRow != -1 && secondaryRow != 0) {
-                        
-                        grid [secondaryRow][p] = 1;
-                        curPlayer = 1;		
-                        win = checkIfWin();
-                        grid [secondaryRow][p] = EMPTY;
-                                    
-                        if (win) {                              
-                           
-                           grid [secondaryRow][p] = 0;
-                           
-                        
-                           
-                                      
-                           if (secondaryRow > 0) {
-                           
-                              grid[secondaryRow - 1][p] = 1;
-                              curPlayer = 1;
-                              win = checkIfWin();
-                              grid[secondaryRow - 1][p] = EMPTY;
-                              
-                              if (win) {
-                                 curPlayer = 0;
-                                 System.out.println("DEFENSIVE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 grid[primaryRow][i] = 0;
-                                 playedCol2 = i;
-                                 grid [secondaryRow][p] = EMPTY;
-                                 return true;
-                              }
-                              
-                           }   
-                             
-                           grid [secondaryRow][p] = EMPTY;
-                        }
-                     
-                     }                     
-                           
-                  }
-                  grid[primaryRow][i] = EMPTY;  
-               }
-               
-            }
-         
-            grid[primaryRow][i] = EMPTY;      
-         }             
-      
-      }
-      System.out.println("DEFENSIVE MOVE PASSES");
-      return false;
-   }
-
-// CREATES A DOUBLE WIN THREAT
-
-   public static boolean advancedMove2 () {
-   
-      boolean win = false;
-      boolean moveFound = false;
-      int numWinMethods = 0;
-   
-      int primaryRow = -1;
-      int secondaryRow = -1;
-   
-   
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         primaryRow = findRow(i);
-         if (primaryRow != -1 && primaryRow != 0){
-            numWinMethods = 0;
-            grid [primaryRow][i] = 0;
-                   
-            for (int p = NUMCOL - 1; p >= 0; p--){
-               win = false;         
-               secondaryRow = findRow (p);
-               
-               if (secondaryRow != -1 && secondaryRow != 0) {
-                  grid [secondaryRow][p] = 0;
-                  curPlayer = 0;		
-                  win = checkIfWin();
-                  grid [secondaryRow][p] = EMPTY;
-                              
-                  if (win) {                              
-                     numWinMethods ++;
-                  }
-                           
-                  if (numWinMethods >= 2) {
-                     if (primaryRow > 0){
-                        grid[primaryRow - 1][i] = 1;
-                        curPlayer = 1;
-                        win = checkIfWin();
-                        grid[primaryRow - 1][i] = EMPTY;
-                                    
-                        if (!win){
-                           moveFound = true;
-                        }
-                     } else {
-                        moveFound = true;
-                     }
-                                 
-                     if (moveFound) {
-                        curPlayer = 0;
-                        System.out.println("ADVANCED MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                        grid [primaryRow][i] = 0;
-                        playedCol2 = i;
-                        grid [secondaryRow][p] = EMPTY;
-                        return true;
-                     }
-                  }
-               } 
-            
-                     
-            }
-                  
-            grid[primaryRow][i] = EMPTY;      
-         }             
-      
-      }
-      System.out.println("ADVANCED MOVE PASSES");
-      return false;
-   }
-   
-// FORCES A BLOCK TO CREATE A WINNING THREAT
-
-   public static boolean forceMove2 () {
-   
-      boolean win = false;
-      int primaryRow = -1;
-      int secondaryRow = -1;
-   
-   
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         
-         primaryRow = findRow(i);
-         
-         if (primaryRow != -1 && primaryRow != 0){
-         
-            grid [primaryRow][i] = 0;
-            
-            if (primaryRow > 0) {
-               
-               grid [primaryRow - 1][i] = 1;
-               curPlayer = 1;		
-               win = checkIfWin();
-               grid [primaryRow - 1][i] = EMPTY;
-               
-               if (!win) {
-                  grid [primaryRow][i] = 1;
-                   
-                  for (int p = NUMCOL - 1; p >= 0; p--){
-                  
-                     win = false;        
-                     secondaryRow = findRow (p);
-                     
-                     if (secondaryRow != -1 && secondaryRow != 0) {
-                        
-                        grid [secondaryRow][p] = 0;
-                        curPlayer = 0;		
-                        win = checkIfWin();
-                        grid [secondaryRow][p] = EMPTY;
-                                    
-                        if (win) {                              
-                           
-                           grid [secondaryRow][p] = 1;
-                                                              
-                           if (secondaryRow > 0) {
-                           
-                              grid[secondaryRow - 1][p] = 0;
-                              curPlayer = 0;
-                              win = checkIfWin();
-                              grid[secondaryRow - 1][p] = EMPTY;
-                              
-                              if (win) {
-                              
-                                 curPlayer = 0;
-                                 System.out.println("FORCE MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                                 grid[primaryRow][i] = 0;
-                                 playedCol2 = i;
-                                 grid [secondaryRow][p] = EMPTY;
-                                 return true;                            
-                              }                       
-                           }                    
-                           grid [secondaryRow][p] = EMPTY;
-                        }    
-                     }                             
-                  }
-                   
-                  grid[primaryRow][i] = EMPTY;  
-               } 
-            }    
-         
-            grid [primaryRow][i] = EMPTY;      
-         }             
-      
-      }
-      System.out.println("FORCE MOVE PASSES");
-      return false;
-   }
-   
-// RETAINS POSITIONAL CONTROL BY TAKING AND BLOCKING THE CONTROL OF SQUARES
-   
-   public static boolean positionalMove2 () {
-      
-      boolean win = false;
-      boolean moveFound = false;
-      int primaryRow = -1;
-      
-      for (int i = NUMCOL - 2; i >= 1; i--){ 
-         
-         primaryRow = findRow(i);
-         
-         if (primaryRow != -1 && primaryRow != 0){
-            
-            
-            if (primaryRow > 0) {
-               
-            
-               grid [primaryRow - 1][i] = 1;
-               curPlayer = 1;
-               win = checkIfWin ();
-               grid [primaryRow - 1][i] = EMPTY;
-               
-               if (!win) {
-                  
-                  grid [primaryRow][i] = 0;
-                  curPlayer = 0;
-                  
-                  if (grid [primaryRow][i - 1] == EMPTY) {
-                     grid [primaryRow][i - 1] = 0;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i - 1] = EMPTY;
-                  }
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  if (grid [primaryRow][i + 1] == EMPTY) {
-                     grid [primaryRow][i + 1] = 0;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i + 1] = EMPTY;
-                  }
-                  
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  grid [primaryRow][i] = 1;
-                  curPlayer = 1;       
-                  
-                  if (grid [primaryRow][i - 1] == EMPTY) {
-                     grid [primaryRow][i - 1] = 1;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i - 1] = EMPTY;
-                  }
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  if (grid [primaryRow][i + 1] == EMPTY) {
-                     grid [primaryRow][i + 1] = 1;
-                     win = ifHorizontal ();
-                     grid [primaryRow][i + 1] = EMPTY;
-                  }
-                  
-                  
-                  if (win) {
-                     moveFound = true;
-                  }
-               
-                  grid [primaryRow - 1][i] = 1;
-                  win = ifVertical ();
-                  grid [primaryRow - 1][i] = EMPTY;
-               
-                  if (win) {
-                     moveFound = true;
-                  }
-                  
-                  if (moveFound) {
-                     curPlayer = 0;
-                     System.out.println("POSITIONAL MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                     grid[primaryRow][i] = 0;
-                     playedCol2 = i;
-                     return true;     
-                  }
-               } 
-               grid [primaryRow][i] = EMPTY;
-            }
-         
-         
-         }
-      }
-      return false;
-   }
-  
-// IMPROVES POSITIONAL PLAY BY FORCING 
-// BLOCKS IN ORDER TO GET MORE SPACIAL CONTROL 
-  
-   public static boolean attackingMove2 () {
-   
-      boolean win = false;
-      boolean horizontalWin = false;
-      boolean moveFound = false;
-   
-      int primaryRow = -1;
-      int secondaryRow = -1;
-   
-   
-      for (int i = NUMCOL - 1; i >= 0; i--){ 
-         
-         primaryRow = findRow(i);
-         
-         if (primaryRow != -1 && primaryRow != 0){
-            
-            grid [primaryRow][i] = 0;
-                   
-            for (int p = NUMCOL - 1; p >= 0; p--){
-               
-               win = false;         
-               secondaryRow = findRow (p);
-               
-               if (secondaryRow != -1 && secondaryRow != 0) {
-                  
-                  
-                  curPlayer = 0;		
-                  
-                  if (primaryRow > 0) {
-                     
-                     curPlayer = 1;
-                     grid [primaryRow - 1][i] = 1;
-                     win = checkIfWin ();
-                     grid [primaryRow - 1][i] = EMPTY;
-                     
-                     if (!win) {
-                        
-                        win = false;
-                        curPlayer = 0;
-                        if (primaryRow >= NUMROW - 3 && p != i) {
-                           grid [secondaryRow][p] = 0;  
-                           horizontalWin = ifHorizontal();
-                           win = horizontalWin;
-                           grid [secondaryRow][p] = EMPTY;                   
-                        } 
-                        
-                        if (primaryRow >= 1 && primaryRow <= NUMROW - 2 && !horizontalWin) {
-                           grid [secondaryRow][p] = 0;
-                           win = ifVertical();
-                           grid [secondaryRow][p] = EMPTY;  
-                        }
-                        
-                        if (win) {
-                        
-                           System.out.println("ATTACKING MOVE PLAYS: COLUMN: " + i + " ROW: " + primaryRow);
-                           grid [primaryRow][i] = 0;                           
-                           grid [secondaryRow][p] = EMPTY;
-                           playedCol2 = i;
-                           return true;
-                        }
-                        
-                     }
-                     
-                  } 
-                  grid [secondaryRow][p] = EMPTY; 
-               }
-            
-            }   
-                      
-            grid[primaryRow][i] = EMPTY;   
-         }
-         
-      }
-      System.out.println("ATTACKING MOVE PASSES");
-      return false;
-   }
-
-
-// PLAYS A REGULAR MOVE IF NO SPECIAL MOVES ARE AVAILABLE
-
-   public static void regularMove2 () {
-      boolean win = false;
-      boolean loop = true;
-      int row = -1;
-      int column;
-      int numTries = 0;
-   
-      while (loop) {
-         numTries++;
-         System.out.println("NUMTRIES: " + numTries);  
-         column = chooseColumn2 (numTries);
-         row = findRow (column);
-         if (row != -1) {
-            
-            win = false;
-            
-            curPlayer = 0;         
-            if (row > 0){
-               
-               grid[row - 1][column] = 1;
-               curPlayer = 1;
-               win = checkIfWin();
-               grid[row - 1][column] = EMPTY;
-             
-               if (numTries > 100) {
-                  curPlayer = 0;
-                  grid [row][column] = 0;
-                  playedCol2 = column;
-                  System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
-                  loop = false;
-               }
-                 
-               if (loop && !win){
-                  
-                  grid[row - 1][column] = 0;
-                  curPlayer = 0;
-                  win = checkIfWin();
-                  grid[row - 1][column] = EMPTY;
-                  
-                  if (!win) {
-                  
-                     curPlayer = 0;
-                     grid [row][column] = 0;
-                     playedCol2 = column;
-                     System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
-                     loop = false;
-                  }
-               }  
-               
-                
+               grid.setCell(primaryRow - 1,i,EMPTY);
                
             } else {
-               curPlayer = 0;
-               grid [row][column] = 0;
-               playedCol2 = column;
-               System.out.println("REGULAR MOVE PLAYS: COLUMN: " + column + " ROW: " + row);
-               loop = false;
-            } 
-         }
-            
-         
-      } 
-   }
-   
-   public static int chooseColumn2 (int numTries) {
-      int column = 3;
-      int min = 0;
-      int max = 0;
-      int row = 0;;
-      
-      if (numTries > 50) {
-         column = (int)(Math.random() * NUMCOL);       
-      } else if (playedCol2 == 0 || playedCol2 == 1) {
-         column = randomColumnGenerator (0, 2);
-      } else if (playedCol2 == 2 ) {
-         column = randomColumnGenerator (1, 3);
-      } else if (playedCol2 == 0 || playedCol2 == 1) {
-         column = randomColumnGenerator (1, 3);
-      } else if (playedCol2 == 3) {
-         column = randomColumnGenerator (2, 4);
-      } else if (playedCol2 == 4) {
-         column = randomColumnGenerator (3, 5);
-      } else if (playedCol2 == 5 || playedCol2 == 6) {
-         column = randomColumnGenerator (4, 6);
-      }
-         
-      if (numMove < 25) {
-         System.out.println("COLUMN: " + column);    
-         if (column >= 1 && column <= 5) {
-            row = findRow (column);
-            if (row != -1) {
-               
-               if (row == NUMROW - 1) {
-               
-                  return column;
-               }
-               
-               if (grid [row + 1] [column] != 0) {
-                  if (grid [row][column - 1] != 0 && grid [row][column + 1] != 0 && row > 1) {
-                     return column;
-                  }
-               }  
+               win = false;
             }
-         }
-         
-      }   
-         
-      return column;  
+            
+            changeCurPlayer ();
+            
+            if (!win) {
+                   
+               for (int p = NUMCOL - 1; p >= 0; p--){
+               
+                  win = false;         
+                  secondaryRow = findRow (p);
+                  numLoops++;
+               
+                  if (secondaryRow != -1) {
+                     
+                     grid.setCell(secondaryRow,p,curPlayer);
+                  //curPlayer = 0;		
+                     win = checkIfWin();
+                     grid.setCell(secondaryRow,p,EMPTY);
+                              
+                     if (win) {                              
+                        numWinMethods ++;
+                     }
+                           
+                     if (numWinMethods >= 2) {
+                        grid.setCell(secondaryRow,p,EMPTY);
+                        grid.setCell(primaryRow,i,EMPTY);
+                        return true;
+                     }
+                  } 
+               
+                  win = false;        
+                  secondaryRow = findRow (p);
+                     
+                  if (secondaryRow != -1 && secondaryRow != 0) {
+                        
+                     grid.setCell(secondaryRow,p,curPlayer);
+                  // curPlayer = 0;		
+                     win = checkIfWin();
+                     grid.setCell(secondaryRow,p,EMPTY);
+                                    
+                     if (win) {                              
+                     
+                        changeCurPlayer ();
+                     
+                        grid.setCell(secondaryRow,p,curPlayer);
+                     
+                        changeCurPlayer ();
+                     
+                        if (secondaryRow > 0) {
+                           
+                           grid.setCell(secondaryRow - 1,p,curPlayer);
+                        //curPlayer = 0;
+                           win = checkIfWin();
+                           grid.setCell(secondaryRow - 1,p,EMPTY);
+                              
+                           if (win) {
+                           
+                              grid.setCell(secondaryRow,p,EMPTY);
+                              grid.setCell(primaryRow,i,EMPTY);
+                              return true;
+                           }
+                              
+                        }   
+                             
+                        grid.setCell(secondaryRow,p,EMPTY);
+                     }
+                     
+                  }
+               
+               }
+            }      
+            grid.setCell(primaryRow,i,EMPTY);     
+         }             
+      
+      }
+      return false;
    }
    
-   
-   
-     
-   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   public static int randomColumnGenerator (int min, int max) {
+   public int randomColumnGenerator (int min, int max) {
       return ThreadLocalRandom.current().nextInt(min, max + 1);
    }
-
-
+   
+   public void changeCurPlayer () {
+      if (curPlayer == 0) {
+         curPlayer = 1;
+      } else {
+         curPlayer = 0;
+      }
+   }
+   
+   // MAKE A DATABASE FUNCTION THAT WILL STORE ALL GAMES PLAYED AND REFERENCES THEM TO SEE IF A PAST BAD MOVE WAS MADE 
 
 
    
   // END OF ENGINE 
    
 
-   public static void ifWin (){
+   public void placePiece (int column,int row){
+      
+      gui.setPiece(row,column,curPlayer);
+      grid.setCell(row,column,curPlayer);
+     // gameData [numMove] = grid.clone();
+      for (int i = 0; i < NUMROW; i++){
+         for (int j = 0; j < NUMCOL; j++){
+            gameData.game [numMove].setCell (i,j,grid [i][j]);
+         }
+      }
+      
+      numMove++;   
+      System.out.println("\nPERSON PLAYS: COLUMN: " + column + " ROW: " + row + " MOVE: " + numMove);
+        
+      ifWin();
+      
+      if (ai == true){        
+         ai ();	
+      } else  {
+         if (curPlayer == 0){
+            curPlayer = 1;
+         } 
+         else {
+            curPlayer = 0;
+         }
+      }  
+      
+   						    
+   }
+
+   public void ifWin (){
       
       boolean win = checkIfWin();
       if (win) {   
+      
          score [curPlayer]++;
+         gui.setPlayerScore(curPlayer, score[curPlayer]);
+         
+         uploadDatabase ();
+         
          
          if (score [curPlayer] == 3){
+            gui.showFinalWinnerMessage(curPlayer);
          } 
           
+         gui.showWinnerMessage(curPlayer);
+        
          
          for (int i = 0; i < NUMROW; i++){
             for (int j = 0; j < NUMCOL; j++){
-               grid [i][j] = EMPTY;
+               grid.setCell(i,j,EMPTY);
             }
          }  
+         gui.resetGameBoard();
          curPlayer = 0;
          numMove = 0;
          playedCol = 3;
-         playedCol2 = 3;
       } else if (numMove == 42) {
+         gui.showTieGameMessage();
          
          for (int i = 0; i < NUMROW; i++){
             for (int j = 0; j < NUMCOL; j++){
-               grid [i][j] = EMPTY;
+               grid.setCell(i,j,EMPTY);
             }
-         }  
+         }    
+         gui.resetGameBoard();
          curPlayer = 0;
          numMove = 0;
          playedCol = 3;
-         playedCol2 = 3;
       } 
    }
 
 
 	
-   public static boolean checkIfWin (){
+   public boolean checkIfWin (){
    	
       boolean horizontalChain,verticalChain,rightDiagonal,leftDiagonal;
       boolean win = false;    
@@ -1705,9 +1624,10 @@ public class ConnectFourCopy {
 		These methods check for if a chain of 4 has been created
 	*/
 // start of horizontal check	
+   
+   
 
-
-   public static boolean ifHorizontal (){
+   public boolean ifHorizontal (){
       boolean chain;
       int startPoint;
       int endPoint;
@@ -1717,7 +1637,7 @@ public class ConnectFourCopy {
          for (int j = 0; j < 4; j++){
             chain = true;
             for (int k = startPoint; k < endPoint; k++){
-               if (!(grid[i][k] == curPlayer && chain == true)){
+               if (!(grid.getCell (i,k) == curPlayer && chain == true)){
                   chain = false;
                } 			
             } 
@@ -1735,7 +1655,7 @@ public class ConnectFourCopy {
 // End of horizontal check
 
 // Start of vertical check
-   public static boolean ifVertical (){
+   public boolean ifVertical (){
       boolean chain;
       int startPoint;
       int endPoint;
@@ -1745,7 +1665,7 @@ public class ConnectFourCopy {
          for (int j = 0; j < 3; j++){
             chain = true;
             for (int k = startPoint; k < endPoint; k++){
-               if (!(grid[k][i] == curPlayer && chain == true)){
+               if (!(grid.getCell (k,i) == curPlayer && chain == true)){
                   chain = false;
                } 
                	
@@ -1764,7 +1684,7 @@ public class ConnectFourCopy {
 
 
 // Start of Right Diagonal Check
-   public static boolean upRight(){
+   public boolean upRight(){
       int rangeEnd,trans1,trans2;
       int endPoint = 0; 
       int startPoint = 0;
@@ -1788,7 +1708,7 @@ public class ConnectFourCopy {
          for (int j = 0; j < rangeEnd ; j++){
             chain = true;
             for (int k = startPoint; k < endPoint; k++){
-               if (!(grid [count][k] == curPlayer && chain == true)) {
+               if (!(grid.getCell (count,k) == curPlayer && chain == true)) {
                   chain = false;
                
                } 
@@ -1826,7 +1746,7 @@ public class ConnectFourCopy {
    
 //	Start of left Diagonal Check
    
-   public static boolean upLeft(){
+   public boolean upLeft(){
       int trans1,trans2;
       int rangeEnd = 1;
       int endPoint = 0; 
@@ -1852,7 +1772,7 @@ public class ConnectFourCopy {
          for (int j = 0; j < rangeEnd ; j++){
             chain = true;
             for (int k = startPoint; k >= endPoint; k--){
-               if (!(grid [count][k] == curPlayer && chain == true)) {
+               if (!(grid.getCell (count,k) == curPlayer && chain == true)) {
                   chain = false;
                
                } 

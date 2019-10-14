@@ -325,7 +325,7 @@
          System.exit (0);
       }
    
-       public static void main (String[] args) {
+       public static void main (String[] args) throws Exception{
          ConnectFourGUI gui = new ConnectFourGUI ();
          ConnectFour game = new ConnectFour (gui);
          ConnectFourListener listener = new ConnectFourListener (game, gui);
